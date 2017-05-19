@@ -1,0 +1,6 @@
+[package]
+name = "huffman-rust"
+version = "0.1.0"
+authors = ["Julian Goldsmith <julian@juliangoldsmith.com>"]
+
+[dependencies]

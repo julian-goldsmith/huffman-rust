@@ -1,0 +1,126 @@
+use std::error::Error;
+use std::fs::File;
+use std::io::prelude::*;
+use std::path::Path;
+
+#[derive(Debug)]
+struct Node {
+    count: usize,
+    val: char,
+    left: Option<Box<Node>>,
+    right: Option<Box<Node>>,
+}
+
+fn get_test_data() -> String {
+    let path = Path::new("../testfile.txt");
+    let display = path.display();
+
+    let mut file = match File::open(&path) {
+        Err(why) => panic!("couldn't open {}: {}", display,
+                                                   why.description()),
+        Ok(file) => file,
+    };
+
+    let mut s = String::new();
+    match file.read_to_string(&mut s) {
+        Err(why) => panic!("couldn't read {}: {}", display,
+                                                   why.description()),
+        Ok(_) => s,
+    }
+}
+
+fn build_freq_list(data: &String) -> Vec<Node> {
+    let mut nodes: Vec<Node> = (0..256).
+        map(|i| Node { 
+            count: 0, 
+            val: i as u8 as char, 
+            left: None, 
+            right: None 
+        }).
+        collect();
+
+    for c in data.chars() {
+        let idx = c as usize;
+        let mut node = &mut nodes[idx];
+        node.count += 1
+    }
+
+    nodes
+}
+
+fn build_tree(nodes: &mut Vec<Node>) -> Node {
+    nodes.sort_by(|a, b| b.count.cmp(&a.count));
+
+    match nodes.len() {
+        1 => nodes.pop().unwrap(),
+        _ => {
+            let left = match nodes.pop() { 
+                None => panic!("Couldn't pop node"), 
+                Some(left) => left 
+            };
+            let right = match nodes.pop() { 
+                None => panic!("Couldn't pop node"), 
+                Some(right) => right 
+            };
+
+            nodes.push(Node { 
+                count: left.count + right.count, 
+                val: '\0', 
+                left: Some(Box::new(left)), 
+                right: Some(Box::new(right)) 
+            });
+            
+            build_tree(nodes)
+        }
+    }
+}
+
+// return None if char not found, string of bits if is
+fn encode_char_internal(root: &Node, c: char, acc: String) -> Option<String> {
+    match root.left {
+        None => if root.val == c { Some(acc) } else { None },
+        Some(ref left) =>
+            match encode_char_internal(&left, c, acc.clone() + &"0") {
+                Some(leftret) => Some(leftret),
+                None => match root.right {
+                    Some(ref right) => encode_char_internal(&right, c, acc.clone() + &"1"),
+                    None => panic!("right node shouldn't be None"),
+                },
+            },
+    }
+}
+
+fn encode_char(root: &Node, c: char) -> Option<String> {
+    encode_char_internal(root, c, String::from(""))
+}
+
+fn decode_char_internal(root: &Node, mut s: String) -> Option<char> {
+    match root.left {
+        None => Some(root.val),
+        Some(ref left) =>
+            match s.pop() {
+                Some('0') => decode_char_internal(&left, s),
+                Some('1') => match root.right {
+                    Some(ref right) => decode_char_internal(&right, s),
+                    None => None,
+                },
+                _ => None,
+            }
+    }
+}
+
+fn decode_char(root: &Node, s: String) -> Option<char> {
+    decode_char_internal(root, s.chars().rev().collect())
+}
+
+fn main() {
+    let data = get_test_data();
+    let mut freqs = build_freq_list(&data);
+    let root = build_tree(&mut freqs);
+
+    let enc = encode_char(&root, 's');
+    print!("{:?}\n", enc);
+
+    let dec = decode_char(&root, enc.unwrap());
+    print!("{:?}\n", dec)
+}

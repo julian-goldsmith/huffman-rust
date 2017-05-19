@@ -1,0 +1,23 @@
+.intel_syntax noprefix
+
+.text
+
+.global fnv_hash_asm
+
+fnv_hash_asm:
+	# rdi is key
+	# rsi is len
+	mov rax, 0xcbf29ce484222325		# h
+	add rsi, rdi				# end of key
+	mov rdx, 0x100000001b3			# constant for mul
+	xor rbx, rbx				# *p
+
+fnv_hash_loop:
+	movzx rbx, byte ptr [rdi]
+	inc rdi
+	xor rax, rbx
+	imul rax, rdx
+	cmp rdi, rsi
+	jne fnv_hash_loop
+
+	ret

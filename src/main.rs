@@ -54,7 +54,8 @@ fn build_tree_internal(mut nodes: Vec<Node>) -> Node {
 }
 
 fn build_tree(data: &Vec<u8>) -> Node {
-    build_tree_internal(build_freq_list(data))
+    let freq_list = build_freq_list(data);
+    build_tree_internal(freq_list)
 }
 
 fn encode_char_internal(root: &Node, c: u8, acc: Bitstream) -> Option<Bitstream> {
@@ -114,14 +115,16 @@ fn get_test_data() -> Vec<u8> {
     }
 }
 
-fn precalc_bitstreams(root: &Node) -> [Bitstream; 256] {
+fn precalc_bitstreams(root: &Node) -> Result<[Bitstream; 256],()> {
     unsafe {
         let mut calc: [Bitstream; 256] = mem::uninitialized();
         for i in 0..256 {
-            let item = encode_char(root, i as u8).unwrap();
-            ptr::write(&mut calc[i], item);
+            match encode_char(root, i as u8) {
+                Some(item) => ptr::write(&mut calc[i], item),
+                None => return Err(()),
+            }
         };
-        calc
+        Ok(calc)
     }
 }
 
@@ -129,10 +132,13 @@ fn main() {
     let data = get_test_data();
     let root = build_tree(&data);
 
-    let calc = precalc_bitstreams(&root);
+    let calc = match precalc_bitstreams(&root) {
+        Ok(calc) => calc,
+        Err(_) => panic!("Couldn't precalc bitstream"),
+    };
 
     let enc = data.iter().
-        map(|c| calc[*c as usize].clone()).
+        map(|c| &calc[*c as usize]).
         fold(Bitstream::new(), |acc, x| acc + x);
 
     let dec = decode_bitstream(&root, enc);

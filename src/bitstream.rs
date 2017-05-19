@@ -33,6 +33,13 @@ impl Bitstream {
         self.pos += 1;
     }
 
+    pub fn append_bitstream(&mut self, other: &Bitstream) {
+        // FIXME: do this better
+        for j in 0..other.pos {
+            self.append(other.get(j));
+        }
+    }
+
     pub fn get(&self, pos: u32) -> u8 {
         let idx = (pos / 8) as usize;
         let bitidx = pos %8;
@@ -66,10 +73,16 @@ impl Add for Bitstream {
     type Output = Bitstream;
 
     fn add(mut self, other: Bitstream) -> Bitstream {
-        // FIXME: do this better
-        for j in 0..other.pos {
-            self.append(other.get(j));
-        }
+        self.append_bitstream(&other);
+        self
+    }
+}
+
+impl<'a> Add<&'a Bitstream> for Bitstream {
+    type Output = Bitstream;
+
+    fn add(mut self, other: &'a Bitstream) -> Bitstream {
+        self.append_bitstream(other);
         self
     }
 }

@@ -3,6 +3,8 @@ use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
+use std::mem;
+use std::ptr;
 use bitstream::Bitstream;
 
 #[derive(Debug)]
@@ -112,12 +114,25 @@ fn get_test_data() -> Vec<u8> {
     }
 }
 
+fn precalc_bitstreams(root: &Node) -> [Bitstream; 256] {
+    unsafe {
+        let mut calc: [Bitstream; 256] = mem::uninitialized();
+        for i in 0..256 {
+            let item = encode_char(root, i as u8).unwrap();
+            ptr::write(&mut calc[i], item);
+        };
+        calc
+    }
+}
+
 fn main() {
     let data = get_test_data();
     let root = build_tree(&data);
 
+    let calc = precalc_bitstreams(&root);
+
     let enc = data.iter().
-        map(|c| encode_char(&root, *c).unwrap()).
+        map(|c| calc[*c as usize].clone()).
         fold(Bitstream::new(), |acc, x| acc + x);
 
     let dec = decode_bitstream(&root, enc);

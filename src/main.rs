@@ -1,7 +1,9 @@
+mod bitstream;
 use std::error::Error;
 use std::fs::File;
 use std::io::prelude::*;
 use std::path::Path;
+use bitstream::Bitstream;
 
 #[derive(Debug)]
 struct Node {
@@ -53,37 +55,44 @@ fn build_tree(data: &String) -> Node {
     build_tree_internal(build_freq_list(data))
 }
 
-fn encode_char_internal(root: &Node, c: char, acc: String) -> Option<String> {
+fn encode_char_internal(root: &Node, c: char, acc: Bitstream) -> Option<Bitstream> {
     match (root.val, &root.left, &root.right) {
         (Some(val), _, _) if val == c => Some(acc),
         (None, &Some(ref left), &Some(ref right)) =>
-            match encode_char_internal(&left, c, acc.clone() + &"0") {
+            match encode_char_internal(&left, c, acc.clone() + 0) {
                 Some(leftret) => Some(leftret),
-                None => encode_char_internal(&right, c, acc.clone() + &"1"),
+                None => encode_char_internal(&right, c, acc.clone() + 1),
             },
         _ => None,
     }
 }
 
-fn encode_char(root: &Node, c: char) -> Option<String> {
-    encode_char_internal(root, c, String::from(""))
+fn encode_char(root: &Node, c: char) -> Option<Bitstream> {
+    encode_char_internal(root, c, Bitstream::new())
 }
 
-fn decode_char_internal(root: &Node, mut s: String) -> Option<char> {
+fn decode_char_internal(root: &Node, mut s: Bitstream) -> (Option<char>, Bitstream) {
     match (root.val, &root.left, &root.right) {
-        (Some(val), _, _) => Some(val),
+        (Some(val), _, _) => (Some(val), s),
         (None, &Some(ref left), &Some(ref right)) =>
             match s.pop() {
-                Some('0') => decode_char_internal(&left, s),
-                Some('1') => decode_char_internal(&right, s),
-                _ => None,
+                Some(0) => decode_char_internal(&left, s),
+                Some(1) => decode_char_internal(&right, s),
+                _ => (None, s)
             },
-        _ => None
+        _ => (None, s)
     }
 }
 
-fn decode_char(root: &Node, s: String) -> Option<char> {
-    decode_char_internal(root, s.chars().rev().collect())
+fn decode_bitstream_internal(root: &Node, s: Bitstream, mut acc: String) -> Option<String> {
+    match decode_char_internal(root, s) {
+        (Some(c), ns) => { acc.push(c); decode_bitstream_internal(root, ns, acc) },
+        (None, _) => Some(acc),
+    }
+}
+
+fn decode_bitstream(root: &Node, s: Bitstream) -> Option<String> {
+    decode_bitstream_internal(root, s.reverse(), String::from(""))
 }
 
 fn get_test_data() -> String {
@@ -108,8 +117,8 @@ fn main() {
     let data = get_test_data();
     let root = build_tree(&data);
 
-    let enc = data.chars().map(|c| encode_char(&root, c).unwrap());
+    let enc = data.chars().map(|c| encode_char(&root, c).unwrap()).fold(Bitstream::new(), |acc, x| acc + x);
 
-    let dec: String = enc.map(|s| decode_char(&root, s).unwrap()).collect();
-    print!("{:?}\n", dec)
+    let dec = decode_bitstream(&root, enc);
+    println!("{:?}", dec)
 }

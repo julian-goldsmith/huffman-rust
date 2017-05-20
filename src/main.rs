@@ -29,6 +29,9 @@ fn main() {
     let enc = lzw::encode(&data);
     println!("enc {:?}", enc);
 
+    let dec = lzw::decode(&enc);
+    println!("dec {:?}", dec);
+
     /*
     let root = huffman::build_tree(&data);
 

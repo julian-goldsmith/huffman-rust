@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::iter::FromIterator;
 
 fn build_initial_dictionary() -> HashMap<Vec<u8>, u16> {
     let mut dict = HashMap::new();
@@ -33,7 +34,34 @@ pub fn encode(data: &Vec<u8>) -> Vec<u16> {
         }
     }
 
-    outvalues.push(entriespos);
+    outvalues.push(*entries.get(&encoded).unwrap());
 
     outvalues
+}
+
+pub fn decode(data: &Vec<u16>) -> Vec<u8> {
+    let mut entries: Vec<Vec<u8>> = (0..256).map(|i| vec![i as u8]).collect();
+    println!("entries {:?}", entries);
+    let mut outbytes: Vec<u8> = Vec::new();
+
+    let mut prev_code = data[0];
+    outbytes.extend(&entries[prev_code as usize]);
+
+    for code in data.iter().skip(1) {
+        let mut val = entries[prev_code as usize].clone();
+
+        val.push(
+            if *code == entries.len() as u16 {
+                entries[prev_code as usize][0]
+            } else {
+                entries[*code as usize][0]
+            });
+
+        entries.push(val);
+
+        outbytes.extend(&entries[*code as usize]);
+        prev_code = *code;
+    };
+
+    outbytes
 }

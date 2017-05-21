@@ -1,6 +1,3 @@
-use std;
-use std::io;
-use std::io::Write;
 use bitstream::Bitstream;
 
 #[derive(Debug)]
@@ -116,30 +113,63 @@ pub fn build_tree(data: &Vec<u16>) -> Box<Node> {
     build_tree_internal(freq_list)
 }
 
-fn encode_char_internal(root: &Node, c: u16, acc: Bitstream) -> Option<Bitstream> {
-    match (root.val, &root.left, &root.right) {
-        (Some(val), _, _) if val == c => Some(acc),
-        (None, &Some(ref left), &Some(ref right)) =>
-            match encode_char_internal(&left, c, acc.clone() + 0) {
-                Some(leftret) => Some(leftret),
-                None => encode_char_internal(&right, c, acc.clone() + 1),
+// TODO: add parent in here, get rid of struct
+enum StateVal {
+    Right,
+    Left,
+    Done,
+}
+
+struct State<'a> {
+    pub state: StateVal,
+    pub node: &'a Box<Node>,
+}
+
+pub fn precalc_bitstreams_internal(node: &Box<Node>, values: &mut Vec<Option<Bitstream>>, acc: Bitstream) {
+    let mut history: Vec<State> = Vec::new();
+
+    let initial_state = State { state: StateVal::Right, node: node };
+    history.push(initial_state);
+
+    loop {
+        match history.pop() {
+            None => return,
+            Some(mut curr_state) => match curr_state.state {
+                StateVal::Done => continue,
+                StateVal::Left | StateVal::Right => {
+                    let next_node = match curr_state.state { 
+                        StateVal::Right => match curr_state.node.right.as_ref() {
+                            Some(node) => node,
+                            None => panic!("don't have node"),
+                        },
+                        StateVal::Left => match curr_state.node.left.as_ref() {
+                            Some(node) => node,
+                            None => panic!("don't have node"),
+                        },
+                        StateVal::Done => panic!("impossible state"), 
+                    };
+
+                    curr_state.state = match curr_state.state { 
+                        StateVal::Right => StateVal::Left,                          // FIXME: right order?
+                        StateVal::Left => StateVal::Done, 
+                        StateVal::Done => continue, 
+                    };
+                    
+                    history.push(curr_state);
+
+                    match next_node.val {
+                        Some(val) => values[val as usize] = Some(acc.clone()),
+                        None => history.push(State { state: StateVal::Right, node: &next_node }),
+                    };
+                },
             },
-        _ => None,
+        }
     }
 }
 
-fn encode_char(root: &Node, c: u16) -> Option<Bitstream> {
-    encode_char_internal(root, c, Bitstream::new())
-}
-
-pub fn precalc_bitstreams(root: &Node) -> Result<Vec<Bitstream>,()> {
-    let mut calc: Vec<Bitstream> = Vec::new();
-    for i in 0..65536 {
-        match encode_char(root, i as u16) {
-            Some(item) => calc.push(item),
-            None => return Err(()),
-        }
-    };
+pub fn precalc_bitstreams(root: &Box<Node>) -> Result<Vec<Option<Bitstream>>,()> {
+    let mut calc: Vec<Option<Bitstream>> = (0..65536).map(|_| None).collect();
+    precalc_bitstreams_internal(root, &mut calc, Bitstream::new());
     Ok(calc)
 }
 

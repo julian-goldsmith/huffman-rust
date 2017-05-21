@@ -45,7 +45,7 @@ fn main() {
     std::io::stdout().flush().ok().expect("error");
 
     let huff_enc = lz_enc.iter().
-        map(|c| &calc[*c as usize]).
+        map(|c| calc[*c as usize].clone().unwrap()).
         fold(Bitstream::new(), |acc, x| acc + x);
 
 

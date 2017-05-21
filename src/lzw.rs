@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::iter::FromIterator;
 
 fn build_initial_dictionary() -> HashMap<Vec<u8>, u16> {
     let mut dict = HashMap::new();

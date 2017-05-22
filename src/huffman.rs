@@ -28,58 +28,9 @@ fn build_freq_list(data: &Vec<u16>) -> Vec<Box<Node>> {
     nodes
 }
 
-fn clamp(val: usize, min: usize, max: usize) -> usize {
-    if val > max {
-        max
-    } else if val < min {
-        min
-    } else {
-        val
-    }
-}
-
 fn find_pos(nodes: &Vec<Box<Node>>, node: &Box<Node>) -> usize {
-    // same as nodes.iter().position(|other| other.count > node.count)
-    
-    if nodes.len() == 0 {
-        return 0
-    }
-
-    let mut lower = 0;
-    let mut upper = nodes.len() - 1;
-
-    // FIXME: make this work right
-    loop {
-        if lower == nodes.len() - 1 {
-            return nodes.len() - 1
-        }
-
-        if nodes[lower].count == node.count {
-            return lower
-        }
-
-        lower += 1;
-
-        /*
-        if lower == upper {
-            return nodes.len()
-        }
-
-        let newlower = clamp(lower * 2 + 1, lower, upper);
-        if nodes[lower].count > node.count {
-            upper = newlower;
-        } else {
-            lower = newlower;
-        }
-
-        let newupper = clamp(upper / 2, lower, upper);
-        if nodes[upper].count > node.count {
-            lower = newupper;
-        } else {
-            upper = newupper;
-        }
-        */
-    }
+    // FIXME: use a better algorithm
+    return nodes.iter().position(|other| other.count > node.count)
 }
 
 fn build_tree_internal(mut nodes: Vec<Box<Node>>) -> Box<Node> {

@@ -43,6 +43,7 @@ impl Bitstream {
     pub fn get(&self, pos: u32) -> u8 {
         let idx = (pos / 8) as usize;
         let bitidx = pos %8;
+
         let byte = self.data[idx];
 
         (byte & (1 << bitidx)) >> bitidx
@@ -108,5 +109,11 @@ impl Display for Bitstream {
             let _ = f.write_str(bitstr);
         };
         Ok(())
+    }
+}
+
+impl Debug for Bitstream {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
+        (self as &Display).fmt(f)
     }
 }

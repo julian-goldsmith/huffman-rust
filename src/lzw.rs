@@ -40,7 +40,6 @@ pub fn encode(data: &Vec<u8>) -> Vec<u16> {
 
 pub fn decode(data: &Vec<u16>) -> Vec<u8> {
     let mut entries: Vec<Vec<u8>> = (0..256).map(|i| vec![i as u8]).collect();
-    println!("entries {:?}", entries);
     let mut outbytes: Vec<u8> = Vec::new();
 
     let mut prev_code = data[0];

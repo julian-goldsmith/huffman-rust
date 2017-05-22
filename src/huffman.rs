@@ -85,21 +85,13 @@ fn find_pos(nodes: &Vec<Box<Node>>, node: &Box<Node>) -> usize {
 fn build_tree_internal(mut nodes: Vec<Box<Node>>) -> Box<Node> {
     // FIXME: can we just insert the node instead of sorting every time?
 
-    let mut count = 0;
-
     loop {
         let lo = nodes.pop();
         let ro = nodes.pop();
 
         match (lo, ro) {
-            (Some(left), None) => { println!("Exiting build_tree_internal"); return left; },
+            (Some(left), None) => return left,
             (Some(left), Some(right)) => {
-                count += 1;
-
-                if count % 256 == 0 {
-                    println!("Count {}", count);
-                };
-
                 let node = Box::new(Node {
                     count: left.count + right.count,
                     val: None,
@@ -123,33 +115,10 @@ pub fn build_tree(data: &Vec<u16>) -> Box<Node> {
 }
 
 // TODO: add parent in here, get rid of struct
-enum StateVal {
-    Right,
-    Left,
+enum State<'a> {
+    Right(&'a Box<Node>),
+    Left(&'a Box<Node>),
     Done,
-}
-
-struct State<'a> {
-    pub state: StateVal,
-    pub node: &'a Box<Node>,
-}
-
-fn precalc_bitstreams_handle_lr<'a>(next_node: &'a Box<Node>, 
-                               acc: &mut Bitstream, 
-                               history: &mut Vec<State<'a >>, 
-                               next_state_val: StateVal, 
-                               next_bit: u8,
-                               mut curr_state: State<'a>,
-                               values: &mut Vec<Option<Bitstream>>) {
-    match next_node.val {
-        Some(val) => values[val as usize] = Some(acc.clone()),
-        None => {
-            curr_state.state = next_state_val;
-            acc.append(next_bit);
-            history.push(curr_state);
-            history.push(State { state: StateVal::Left, node: next_node });
-        },
-    };
 }
 
 pub fn precalc_bitstreams(node: &Box<Node>) -> Result<Vec<Option<Bitstream>>,()> {
@@ -157,65 +126,40 @@ pub fn precalc_bitstreams(node: &Box<Node>) -> Result<Vec<Option<Bitstream>>,()>
     let mut history: Vec<State> = Vec::new();
     let mut acc = Bitstream::new();
 
-    let initial_state = State { state: StateVal::Left, node: node };
+    let initial_state = State::Left(node);
     history.push(initial_state);
-    acc.append(1);
 
     loop {
         match history.pop() {
             None => return Ok(values),
-            Some(mut curr_state) => match curr_state.state {
-                StateVal::Done => { let _ = acc.pop(); },
+            Some(curr_state) =>
+                match curr_state {
+                    State::Done => { let _ = acc.pop(); },
 
-                StateVal::Left => {
-                    /*
-                    let next_node = match curr_state.node.left.as_ref() {
-                        Some(node) => node,
-                        None => panic!("don't have node"),
-                    };
+                    State::Right(node) if node.val.is_none() => {
+                        let next_node = node.right.as_ref().unwrap();
 
-                    match next_node.val {
-                        Some(val) => { values[val as usize] = Some(acc.clone()); println!("val {}", val); },
-                        None => {
-                            curr_state.state = StateVal::Right;
-                            acc.append(1);
-                            history.push(curr_state);
-                            history.push(State { state: StateVal::Left, node: &next_node });
-                        },
-                    };
-                    */
+                        acc.pop();
+                        acc.append(1);
+                        history.push(State::Done);
+                        history.push(State::Left(next_node));
+                    },
 
-                    precalc_bitstreams_handle_lr(curr_state.node.left.as_ref().unwrap(),
-                        &mut acc,
-                        &mut history,
-                        StateVal::Right,
-                        1,
-                        curr_state,
-                        &mut values);
+                    State::Left(node) if node.val.is_none() => {
+                        let next_node = node.left.as_ref().unwrap();
+
+                        acc.append(0);
+                        history.push(State::Right(node));
+                        history.push(State::Left(next_node));
+                    },
+
+                    State::Right(node) | State::Left(node) => values[node.val.unwrap() as usize] = Some(acc.clone()),
                 },
-
-                StateVal::Right => {
-                    let next_node = match curr_state.node.right.as_ref() {
-                        Some(node) => node,
-                        None => panic!("don't have node"),
-                    };
-
-                    match next_node.val {
-                        Some(val) => values[val as usize] = Some(acc.clone()),
-                        None => {
-                            curr_state.state = StateVal::Done;
-                            acc.append(0);
-                            history.push(curr_state);
-                            history.push(State { state: StateVal::Left, node: &next_node });
-                        },
-                    };
-                },
-            },
         }
     }
 }
 
-fn decode_char(root: &Node, mut s: Bitstream) -> (Option<u16>, Bitstream) {
+fn decode_char(root: &Node, mut s: Box<Bitstream>) -> (Option<u16>, Box<Bitstream>) {
     match (root.val, &root.left, &root.right) {
         (Some(val), _, _) => (Some(val), s),
         (None, &Some(ref left), &Some(ref right)) =>
@@ -228,13 +172,13 @@ fn decode_char(root: &Node, mut s: Bitstream) -> (Option<u16>, Bitstream) {
     }
 }
 
-fn decode_bitstream_internal(root: &Node, s: Bitstream, mut acc: Vec<u16>) -> Option<Vec<u16>> {
+fn decode_bitstream_internal(root: &Node, s: Box<Bitstream>, mut acc: Vec<u16>) -> Option<Vec<u16>> {
     match decode_char(root, s) {
         (Some(c), ns) => { acc.push(c); decode_bitstream_internal(root, ns, acc) },
         (None, _) => Some(acc),
     }
 }
 
-pub fn decode_bitstream(root: &Node, s: Bitstream) -> Option<Vec<u16>> {
-    decode_bitstream_internal(root, s.reverse(), Vec::new())
+pub fn decode_bitstream(root: &Node, s: Box<Bitstream>) -> Option<Vec<u16>> {
+    decode_bitstream_internal(root, Box::new(s.reverse()), Vec::new())
 }

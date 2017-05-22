@@ -1,6 +1,8 @@
 use std::ops::Add;
 use std::fmt::*;
 use std::result::Result;
+use std::io;
+use std::io::Write;
 
 #[derive(Clone)]
 pub struct Bitstream {
@@ -67,6 +69,13 @@ impl Bitstream {
         };
 
         bs
+    }
+
+    pub fn write(&self, writer: &mut Write) -> io::Result<usize> {
+        match writer.write(&[(self.pos & 0x00ff) as u8, (self.pos >> 8) as u8]) {
+            Err(nb) => return Err(nb),
+            _ => writer.write(&self.data),
+        }
     }
 }
 

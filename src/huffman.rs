@@ -8,18 +8,22 @@ pub struct Node {
     right: Option<Box<Node>>,
 }
 
-fn build_freq_list(data: &Vec<u16>) -> Vec<Box<Node>> {
-    let mut nodes: Vec<Box<Node>> = Vec::new();
+enum State<'a> {
+    Right(&'a Box<Node>),
+    Left(&'a Box<Node>),
+    Done,
+}
 
-    for i in 0..65536 {
-        nodes.push(Box::new(
-            Node { 
-                count: 0, 
+fn build_freq_list(data: &Vec<u16>) -> Vec<Box<Node>> {
+    let mut nodes: Vec<Box<Node>> = (0..65536).
+        map(|i| Box::new(
+            Node {
+                count: 0,
                 val: Some(i as u16),
-                left: None, 
-                right: None 
-            }));
-    };
+                left: None,
+                right: None,
+            })).
+        collect();
 
     for code in data.iter() {
         nodes[*code as usize].count += 1;
@@ -30,12 +34,13 @@ fn build_freq_list(data: &Vec<u16>) -> Vec<Box<Node>> {
 
 fn find_pos(nodes: &Vec<Box<Node>>, node: &Box<Node>) -> usize {
     // FIXME: use a better algorithm
-    return nodes.iter().position(|other| other.count > node.count)
+    match nodes.iter().position(|other| other.count > node.count) {
+        Some(idx) => idx,
+        None => nodes.len(),
+    }
 }
 
 fn build_tree_internal(mut nodes: Vec<Box<Node>>) -> Box<Node> {
-    // FIXME: can we just insert the node instead of sorting every time?
-
     loop {
         let lo = nodes.pop();
         let ro = nodes.pop();
@@ -63,13 +68,6 @@ fn build_tree_internal(mut nodes: Vec<Box<Node>>) -> Box<Node> {
 pub fn build_tree(data: &Vec<u16>) -> Box<Node> {
     let freq_list = build_freq_list(data);
     build_tree_internal(freq_list)
-}
-
-// TODO: add parent in here, get rid of struct
-enum State<'a> {
-    Right(&'a Box<Node>),
-    Left(&'a Box<Node>),
-    Done,
 }
 
 pub fn precalc_bitstreams(node: &Box<Node>) -> Result<Vec<Option<Bitstream>>,()> {
@@ -110,26 +108,22 @@ pub fn precalc_bitstreams(node: &Box<Node>) -> Result<Vec<Option<Bitstream>>,()>
     }
 }
 
-fn decode_char(root: &Node, mut s: Box<Bitstream>) -> (Option<u16>, Box<Bitstream>) {
-    match (root.val, &root.left, &root.right) {
-        (Some(val), _, _) => (Some(val), s),
-        (None, &Some(ref left), &Some(ref right)) =>
-            match s.pop() {
-                Some(0) => decode_char(&left, s),
-                Some(1) => decode_char(&right, s),
-                _ => (None, s)
-            },
-        _ => (None, s)
-    }
-}
+pub fn decode_bitstream(root: &Node, in_stream: &Box<Bitstream>) -> Option<Vec<u16>> {
+    let mut node = root;
+    let mut s = Box::new(in_stream.reverse());
+    let mut acc = Vec::new();
 
-fn decode_bitstream_internal(root: &Node, s: Box<Bitstream>, mut acc: Vec<u16>) -> Option<Vec<u16>> {
-    match decode_char(root, s) {
-        (Some(c), ns) => { acc.push(c); decode_bitstream_internal(root, ns, acc) },
-        (None, _) => Some(acc),
+    loop {
+        match (node.val, &node.left, &node.right) {
+            (Some(val), _, _) => { acc.push(val); node = root; },
+            (None, &Some(ref left), &Some(ref right)) =>
+                match s.pop() {
+                    Some(0) => { node = &left; },
+                    Some(1) => { node = &right; },
+                    None => return Some(acc),
+                    _ => return None,
+                },
+            _ => return None
+        }
     }
-}
-
-pub fn decode_bitstream(root: &Node, s: Box<Bitstream>) -> Option<Vec<u16>> {
-    decode_bitstream_internal(root, Box::new(s.reverse()), Vec::new())
 }

@@ -42,9 +42,9 @@ fn main() {
 
     let lz_enc = lzw::encode(&data);
 
-    let root = huffman::build_tree(&lz_enc);
+    let root = huffman::encode::build_tree(&lz_enc);
 
-    let calc = match huffman::precalc_bitstreams(&root) {
+    let calc = match huffman::encode::precalc_bitstreams(&root) {
         Ok(calc) => calc,
         Err(_) => panic!("Couldn't precalc bitstream"),
     };

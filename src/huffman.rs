@@ -36,7 +36,7 @@ fn build_freq_list(data: &Vec<u16>) -> Vec<Box<Node>> {
 
 fn find_pos(nodes: &Vec<Box<Node>>, node: &Box<Node>) -> usize {
     // FIXME: use a better algorithm
-    match nodes.iter().position(|other| other.count > node.count) {
+    match nodes.iter().position(|other| other.count < node.count) {
         Some(idx) => idx,
         None => nodes.len(),
     }

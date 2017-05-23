@@ -29,6 +29,8 @@ fn build_freq_list(data: &Vec<u16>) -> Vec<Box<Node>> {
         nodes[*code as usize].count += 1;
     };
 
+    nodes.sort_by_key(|node| node.count);
+
     nodes
 }
 

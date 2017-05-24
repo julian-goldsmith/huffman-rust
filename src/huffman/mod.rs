@@ -16,6 +16,11 @@ pub struct Freq {
     count: u16,
 }
 
+pub struct HuffmanData {
+    freqs: Box<[Freq; 65536]>,
+    bs: Bitstream
+}
+
 fn find_pos(nodes: &Vec<Box<Node>>, node: &Box<Node>) -> usize {
     // FIXME: use a binary search
     match nodes.iter().position(|other| other.count < node.count) {
@@ -24,7 +29,7 @@ fn find_pos(nodes: &Vec<Box<Node>>, node: &Box<Node>) -> usize {
     }
 }
 
-fn build_tree(freqs: &Box<[Freq; 65536]>) -> Box<Node> {
+fn build_tree(freqs: &[Freq; 65536]) -> Box<Node> {
     let mut nodes: Vec<Box<Node>> = freqs.iter().
         map(|freq| Box::new(
             Node {
@@ -59,10 +64,10 @@ fn build_tree(freqs: &Box<[Freq; 65536]>) -> Box<Node> {
     };
 }
 
-pub fn encode(data: &Vec<u16>) -> Result<(Box<[Freq; 65536]>, Bitstream),()> {
+pub fn encode(data: &Vec<u16>) -> Result<Box<HuffmanData>,()> {
     encode::encode_internal(data)
 }
 
-pub fn decode(freqs: &Box<[Freq; 65536]>, bs: &Bitstream) -> Result<Vec<u16>, String> {
-    decode::decode_internal(freqs, bs)
+pub fn decode(data: &HuffmanData) -> Result<Vec<u16>, String> {
+    decode::decode_internal(&data.freqs, &data.bs)
 }

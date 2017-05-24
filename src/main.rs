@@ -6,7 +6,6 @@ use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::prelude::*;
 use std::path::Path;
-use bitstream::Bitstream;
 
 fn read_file(path: &String) -> Vec<u8> {
     let path = Path::new(path);
@@ -42,19 +41,21 @@ fn main() {
 
     let lz_enc = lzw::encode(&data);
 
-    let (freqs, huff_enc) = match huffman::encode(&lz_enc) {
-        Ok((freqs, huff_enc)) => (freqs, huff_enc),
+    let huff_enc = match huffman::encode(&lz_enc) {
+        Ok(huff_enc) => huff_enc,
         Err(_) => panic!("Error encoding"),
     };
 
+    /*
     let mut f = create_file(&String::from("../testfile.zzz"));
     match huff_enc.write(&mut f) {
         Ok(n) => println!("Wrote {} bytes", n),
         _ => panic!("Couldn't write file"),
     };
+    */
 
 
-    let huff_dec = huffman::decode(&freqs, &huff_enc).unwrap();
+    let huff_dec = huffman::decode(&huff_enc).unwrap();
     let lz_dec = lzw::decode(&huff_dec);
 
     assert_eq!(lz_enc, huff_dec);

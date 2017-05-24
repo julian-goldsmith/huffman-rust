@@ -11,9 +11,9 @@ enum State<'a> {
 }
 
 fn build_freq_list(data: &Vec<u16>) -> Box<[Freq; 65536]> {
-    let mut freqs: Box<[Freq; 65536]> = 
+    let mut freqs: [Freq; 65536] = 
         unsafe {
-            let mut freqs: Box<[Freq; 65536]> = mem::uninitialized();
+            let mut freqs: [Freq; 65536] = mem::uninitialized();
             for i in 0..65536 {
                 ptr::write(&mut freqs[i], 
                     Freq {
@@ -30,10 +30,10 @@ fn build_freq_list(data: &Vec<u16>) -> Box<[Freq; 65536]> {
 
     freqs.sort_by_key(|freq| freq.count);
 
-    freqs
+    Box::new(freqs)
 }
 
-fn precalc_bitstreams(freqs: &Box<[Freq; 65536]>) -> Result<Vec<Option<Bitstream>>,()> {
+fn precalc_bitstreams(freqs: &[Freq; 65536]) -> Result<Vec<Option<Bitstream>>,()> {
     let root = huffman::build_tree(freqs);
 
     let mut values: Vec<Option<Bitstream>> = (0..65536).map(|_| None).collect();
@@ -73,12 +73,12 @@ fn precalc_bitstreams(freqs: &Box<[Freq; 65536]>) -> Result<Vec<Option<Bitstream
     }
 }
 
-pub fn encode_internal(data: &Vec<u16>) -> Result<(Box<[Freq; 65536]>, Bitstream),()> {
+pub fn encode_internal(data: &Vec<u16>) -> Result<Box<HuffmanData>,()> {
     let freqs = build_freq_list(data);
     let streams = precalc_bitstreams(&freqs).unwrap();
-    let enc = data.iter().
+    let bs = data.iter().
         map(|c| streams[*c as usize].as_ref().unwrap()).
         fold(Bitstream::new(), 
              |mut acc, x| { acc.append_bitstream(x); acc });
-    Ok((freqs, enc))
+    Ok(Box::from(HuffmanData { freqs, bs }))
 }

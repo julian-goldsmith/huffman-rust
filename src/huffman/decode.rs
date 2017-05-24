@@ -1,10 +1,9 @@
 use bitstream::Bitstream;
 use huffman;
 use huffman::Freq;
-use huffman::Node;
 
-pub fn decode_internal(freqs: &Box<[Freq; 65536]>, in_stream: &Bitstream) -> Result<Vec<u16>, String> {
-    let mut root = huffman::build_tree(freqs);
+pub fn decode_internal(freqs: &[Freq; 65536], in_stream: &Bitstream) -> Result<Vec<u16>, String> {
+    let root = huffman::build_tree(freqs);
     let mut node = &root;
     let mut s = Box::new(in_stream.reverse());
     let mut acc = Vec::new();

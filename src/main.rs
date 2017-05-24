@@ -42,17 +42,10 @@ fn main() {
 
     let lz_enc = lzw::encode(&data);
 
-    let root = huffman::encode::build_tree(&lz_enc);
-
-    let calc = match huffman::encode::precalc_bitstreams(&root) {
-        Ok(calc) => calc,
-        Err(_) => panic!("Couldn't precalc bitstream"),
+    let (freqs, huff_enc) = match huffman::encode(&lz_enc) {
+        Ok((freqs, huff_enc)) => (freqs, huff_enc),
+        Err(_) => panic!("Error encoding"),
     };
-
-    let huff_enc = lz_enc.iter().
-        map(|c| calc[*c as usize].clone().unwrap()).
-        fold(Box::new(Bitstream::new()), 
-             |mut acc, x| { acc.append_bitstream(&x); acc });
 
     let mut f = create_file(&String::from("../testfile.zzz"));
     match huff_enc.write(&mut f) {
@@ -61,7 +54,7 @@ fn main() {
     };
 
 
-    let huff_dec = huffman::decode_bitstream(&root, &huff_enc).unwrap();
+    let huff_dec = huffman::decode(&freqs, &huff_enc).unwrap();
     let lz_dec = lzw::decode(&huff_dec);
 
     assert_eq!(lz_enc, huff_dec);

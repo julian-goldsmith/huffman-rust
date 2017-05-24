@@ -1,6 +1,8 @@
 use bitstream::Bitstream;
 use huffman;
-use huffman::Node;
+use huffman::*;
+use std::mem;
+use std::ptr;
 
 enum State<'a> {
     Right(&'a Box<Node>),
@@ -8,37 +10,37 @@ enum State<'a> {
     Done,
 }
 
-fn build_freq_list(data: &Vec<u16>) -> Vec<Box<Node>> {
-    let mut nodes: Vec<Box<Node>> = (0..65536).
-        map(|i| Box::new(
-            Node {
-                count: 0,
-                val: Some(i as u16),
-                left: None,
-                right: None,
-            })).
-        collect();
+fn build_freq_list(data: &Vec<u16>) -> Box<[Freq; 65536]> {
+    let mut freqs: Box<[Freq; 65536]> = 
+        unsafe {
+            let mut freqs: Box<[Freq; 65536]> = mem::uninitialized();
+            for i in 0..65536 {
+                ptr::write(&mut freqs[i], 
+                    Freq {
+                        val: i as u16,
+                        count: 0,
+                    });
+            };
+            freqs
+        };
 
     for code in data.iter() {
-        nodes[*code as usize].count += 1;
+        freqs[*code as usize].count += 1;
     };
 
-    nodes.sort_by_key(|node| node.count);
+    freqs.sort_by_key(|freq| freq.count);
 
-    nodes
+    freqs
 }
 
-pub fn build_tree(data: &Vec<u16>) -> Box<Node> {
-    let freq_list = build_freq_list(data);
-    huffman::build_tree_internal(freq_list)
-}
+fn precalc_bitstreams(freqs: &Box<[Freq; 65536]>) -> Result<Vec<Option<Bitstream>>,()> {
+    let root = huffman::build_tree(freqs);
 
-pub fn precalc_bitstreams(node: &Box<Node>) -> Result<Vec<Option<Bitstream>>,()> {
     let mut values: Vec<Option<Bitstream>> = (0..65536).map(|_| None).collect();
     let mut history: Vec<State> = Vec::new();
     let mut acc = Bitstream::new();
 
-    let initial_state = State::Left(node);
+    let initial_state = State::Left(&root);
     history.push(initial_state);
 
     loop {
@@ -69,4 +71,14 @@ pub fn precalc_bitstreams(node: &Box<Node>) -> Result<Vec<Option<Bitstream>>,()>
                 },
         }
     }
+}
+
+pub fn encode_internal(data: &Vec<u16>) -> Result<(Box<[Freq; 65536]>, Bitstream),()> {
+    let freqs = build_freq_list(data);
+    let streams = precalc_bitstreams(&freqs).unwrap();
+    let enc = data.iter().
+        map(|c| streams[*c as usize].as_ref().unwrap()).
+        fold(Bitstream::new(), 
+             |mut acc, x| { acc.append_bitstream(x); acc });
+    Ok((freqs, enc))
 }

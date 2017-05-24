@@ -3,26 +3,25 @@ use std::fmt::*;
 use std::result::Result;
 use std::io;
 use std::io::Write;
+use std::io::Read;
 
 #[derive(Clone)]
 pub struct Bitstream {
-    pub cap: u32,
-    pub pos: u32,
+    pub pos: usize,
     data: Vec<u8>,
 }
 
 impl Bitstream {
     pub fn new() -> Bitstream {
-        Bitstream { cap: 8 * 8, pos: 0, data: vec![0; 8] }
+        Bitstream { pos: 0, data: vec![0; 8] }
     }
 
     pub fn append(&mut self, val: u8) {
-        if self.pos >= self.cap {
+        if self.pos >= self.data.len() * 8 {
             self.data.push(0);
             self.data.push(0);
             self.data.push(0);
             self.data.push(0);
-            self.cap += 8 * 4;
         }
 
         let idx = (self.pos / 8) as usize;
@@ -42,7 +41,7 @@ impl Bitstream {
         }
     }
 
-    pub fn get(&self, pos: u32) -> u8 {
+    pub fn get(&self, pos: usize) -> u8 {
         let idx = (pos / 8) as usize;
         let bitidx = pos %8;
 
@@ -72,10 +71,26 @@ impl Bitstream {
     }
 
     pub fn write(&self, writer: &mut Write) -> io::Result<usize> {
-        match writer.write(&[(self.pos & 0x00ff) as u8, (self.pos >> 8) as u8]) {
-            Err(nb) => return Err(nb),
+        match writer.write(&[(self.pos >> 8) as u8, (self.pos & 0x00ff) as u8]) {
+            Err(err) => return Err(err),
             _ => writer.write(&self.data),
         }
+    }
+
+    pub fn read(reader: &mut Read) -> io::Result<Bitstream> {
+        let mut pos_buf = [0 as u8; 2];
+        reader.read(&mut pos_buf)?;
+
+        let pos = (pos_buf[0] as usize) << 8 | pos_buf[1] as usize;
+        let byte_len = pos / 8 + 1;
+
+        let mut retval = Bitstream { pos, data: Vec::with_capacity(byte_len) };
+        unsafe {
+            retval.data.set_len(byte_len);
+        };
+        reader.read(&mut retval.data[0..byte_len])?;
+
+        Ok(retval)
     }
 }
 

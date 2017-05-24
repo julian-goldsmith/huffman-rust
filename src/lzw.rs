@@ -42,7 +42,7 @@ pub fn decode(data: &Vec<u16>) -> Vec<u8> {
     let mut entries: Vec<Vec<u8>> = (0..256).map(|i| vec![i as u8]).collect();
     let mut outbytes: Vec<u8> = Vec::new();
 
-    let mut prev_code = data[0];
+    let mut prev_code = data[0];                                    // FIXME: can panic here
     outbytes.extend(&entries[prev_code as usize]);
 
     for code in data.iter().skip(1) {

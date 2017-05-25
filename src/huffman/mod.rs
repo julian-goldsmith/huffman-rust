@@ -5,6 +5,9 @@ use std::io;
 use std::io::Write;
 use std::io::Read;
 
+pub use self::encode::encode;
+pub use self::decode::decode;
+
 #[derive(Debug)]
 pub struct Node {
     count: u16,
@@ -20,23 +23,18 @@ pub struct Freq {
 }
 
 pub struct HuffmanData {
-    freqs: Box<[Freq; 65536]>,
+    freqs: Vec<Freq>,
     bs: Bitstream
 }
 
 impl HuffmanData {
-    pub fn write(&self, mut writer: &mut Write) -> io::Result<usize> {
-        let mut bytes_out: usize = 0;
+    fn write_freqs(&self, mut writer: &mut Write) -> io::Result<usize> {
         let freqs_filtered: Vec<&Freq> = self.freqs.iter().
             filter(|freq| freq.count > 0).
             collect();
 
         let freqs_filtered_len = freqs_filtered.len() as u16;
         let freqs_filtered_buf = [(freqs_filtered_len >> 8) as u8, (freqs_filtered_len & 0xff) as u8];
-        match writer.write(&freqs_filtered_buf) {
-            Err(err) => return Err(err),
-            Ok(nb) => bytes_out += nb,
-        };
 
         let freqs_as_u8: Vec<u8> = freqs_filtered.iter().
             flat_map(|freq| 
@@ -46,15 +44,31 @@ impl HuffmanData {
                           (freq.count & 0xff) as u8]).
             collect();
 
-        match writer.write(&freqs_as_u8) {
-            Err(err) => return Err(err),
-            Ok(nb) => bytes_out += nb,
-        };
+        let bytes_out =
+            match writer.write(&freqs_filtered_buf) {
+                Err(err) => return Err(err),
+                Ok(nb) => nb,
+            }
+            +
+            match writer.write(&freqs_as_u8) {
+                Err(err) => return Err(err),
+                Ok(nb) => nb,
+            };
+        Ok(bytes_out)
+    }
 
-        match self.bs.write(&mut writer) {
-            Err(err) => Err(err),
-            Ok(nb) => Ok(bytes_out + nb),
-        }
+    pub fn write(&self, mut writer: &mut Write) -> io::Result<usize> {
+        let bytes_out = 
+            match self.write_freqs(writer) {
+                Err(err) => return Err(err),
+                Ok(nb) => nb,
+            }
+            +
+            match self.bs.write(&mut writer) {
+                Err(err) => return Err(err),
+                Ok(nb) => nb,
+            };
+        Ok(bytes_out)
     }
 
     pub fn read(reader: &mut Read) -> io::Result<HuffmanData> {
@@ -69,12 +83,14 @@ impl HuffmanData {
         }
         reader.read(&mut freqs_buf[0..])?;
 
-        let mut freqs = Box::new([Freq { val: 0, count: 0}; 65536]);
+        let mut freqs: Vec<Freq> = Vec::with_capacity(65536);
         for i in 0..freqs_len {
-            let mut freq = &mut freqs[i];
-            freq.val = (freqs_buf[i * 4] as u16) << 8 | freqs_buf[i * 4 + 1] as u16;
-            freq.count = (freqs_buf[i * 4 + 2] as u16) << 8 | freqs_buf[i * 4 + 3] as u16;
-        }
+            freqs.push(Freq {
+                val: (freqs_buf[i * 4] as u16) << 8 | freqs_buf[i * 4 + 1] as u16,
+                count: (freqs_buf[i * 4 + 2] as u16) << 8 | freqs_buf[i * 4 + 3] as u16,
+            });
+        };
+        freqs.shrink_to_fit();
 
         let bs = Bitstream::read(reader)?;
 
@@ -90,7 +106,7 @@ fn find_pos(nodes: &Vec<Box<Node>>, node: &Box<Node>) -> usize {
     }
 }
 
-fn build_tree(freqs: &[Freq; 65536]) -> Box<Node> {
+fn build_tree(freqs: &Vec<Freq>) -> Box<Node> {
     let mut nodes: Vec<Box<Node>> = freqs.iter().
         map(|freq| Box::new(
             Node {
@@ -123,12 +139,4 @@ fn build_tree(freqs: &[Freq; 65536]) -> Box<Node> {
             _ => panic!("Must have nodes to build_tree"),
         };
     };
-}
-
-pub fn encode(data: &Vec<u16>) -> Result<Box<HuffmanData>,()> {
-    encode::encode_internal(data)
-}
-
-pub fn decode(data: &HuffmanData) -> Result<Vec<u16>, String> {
-    decode::decode_internal(&data.freqs, &data.bs)
 }

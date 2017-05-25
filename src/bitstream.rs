@@ -71,10 +71,17 @@ impl Bitstream {
     }
 
     pub fn write(&self, writer: &mut Write) -> io::Result<usize> {
-        match writer.write(&[(self.pos >> 8) as u8, (self.pos & 0x00ff) as u8]) {
-            Err(err) => return Err(err),
-            _ => writer.write(&self.data),
-        }
+        let bytes_out =
+            match writer.write(&[(self.pos >> 8) as u8, (self.pos & 0x00ff) as u8]) {
+                Err(err) => return Err(err),
+                Ok(nb) => nb,
+            }
+            +
+            match writer.write(&self.data) {
+                Err(err) => return Err(err),
+                Ok(nb) => nb,
+            };
+        Ok(bytes_out)
     }
 
     pub fn read(reader: &mut Read) -> io::Result<Bitstream> {

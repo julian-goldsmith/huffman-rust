@@ -97,9 +97,6 @@ impl Bitstream {
         // FIXME: make this less terrible
         let byte_len = (pos as f32 / 8.0).ceil() as usize;
 
-        println!("read pos {}", pos);
-        println!("byte_len {}", byte_len);
-
         let mut retval = Bitstream { pos, data: Vec::with_capacity(byte_len) };
         unsafe {
             retval.data.set_len(byte_len);

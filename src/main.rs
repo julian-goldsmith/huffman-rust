@@ -40,10 +40,10 @@ fn create_file(path: &Path) -> File {
 }
 
 fn encode(mut write_file: &File, data: &Vec<u8>) {
-    for chunk in data.chunks(63356) {
+    for chunk in data.chunks(2 * 65536) {
         let lz_enc = lzw::encode(chunk);
 
-        println!("lz_enc len {}", lz_enc.len());
+        println!("lz_enc len {}", lz_enc.len() * 2);
 
         let huff_enc = match huffman::encode(&lz_enc) {
             Ok(huff_enc) => huff_enc,
@@ -51,7 +51,7 @@ fn encode(mut write_file: &File, data: &Vec<u8>) {
         };
 
         match huff_enc.write(&mut write_file) {
-            Ok(n) => println!("Wrote {} bytes", n),
+            Ok(n) => println!("huff_enc len {} bytes", n),
             _ => panic!("Couldn't write file"),
         };
     };
@@ -64,7 +64,7 @@ fn decode(mut read_file: &File) -> Vec<u8> {
         let hd = match huffman::HuffmanData::read(&mut read_file) {
             Ok(Some(hd)) => hd,
             Ok(None) => return bytes,
-            _ => panic!("Couldn't read file"),
+            Err(err) => panic!("Couldn't read file: {:?}", err),
         };
 
         let huff_dec = huffman::decode(&hd).unwrap();

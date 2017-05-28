@@ -4,13 +4,13 @@ use bitstream::Bitstream;
 use std::io;
 use std::io::Write;
 use std::io::Read;
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 pub use self::encode::encode;
 pub use self::decode::decode;
 
 #[derive(Debug)]
 pub struct Node {
-    count: u16,
     val: Option<u16>,
     left: Option<Box<Node>>,
     right: Option<Box<Node>>,
@@ -33,53 +33,30 @@ impl HuffmanData {
             filter(|freq| freq.count > 0).
             collect();
 
-        let freqs_filtered_len = freqs_filtered.len() as u16;
-        let freqs_filtered_buf = [(freqs_filtered_len >> 8) as u8, (freqs_filtered_len & 0xff) as u8];
+        println!("Writing {} freqs", freqs_filtered.len());
+        writer.write_u16::<BigEndian>(freqs_filtered.len() as u16)?;
 
-        println!("Writing {} freqs", freqs_filtered_len);
+        for freq in freqs_filtered.iter() {
+            writer.write_u16::<BigEndian>(freq.val)?;   // FIXME: handle errors
+        }
 
-        let freqs_as_u8: Vec<u8> = freqs_filtered.iter().
-            flat_map(|freq| 
-                     vec![(freq.val >> 8) as u8,
-                          (freq.val & 0xff) as u8,
-                          (freq.count >> 8) as u8,
-                          (freq.count & 0xff) as u8]).
-            collect();
-
-        let bytes_out =
-            match writer.write(&freqs_filtered_buf) {
-                Err(err) => return Err(err),
-                Ok(nb) => nb,
-            }
-            +
-            match writer.write(&freqs_as_u8) {
-                Err(err) => return Err(err),
-                Ok(nb) => nb,
-            };
+        let bytes_out = 2 + (freqs_filtered.len() * 2);
         Ok(bytes_out)
     }
 
     fn read_freqs(reader: &mut Read) -> io::Result<Option<Vec<Freq>>> {
-        let mut freqs_len_buf = [0 as u8; 2];
-        if reader.read(&mut freqs_len_buf)? == 0 {
-            return Ok(None);
+        let freqs_len = match reader.read_u16::<BigEndian>() {
+            Err(_) => return Ok(None),                // FIXME: errors other than EOF?
+            Ok(freqs_len) => freqs_len as usize,
         };
-
-        let freqs_len = (freqs_len_buf[0] as usize) << 8 | freqs_len_buf[1] as usize;
 
         println!("Reading {} freqs", freqs_len);
 
-        let mut freqs_buf: Vec<u8> = Vec::with_capacity(freqs_len * 4);
-        unsafe {
-            freqs_buf.set_len(freqs_len * 4);
-        }
-        reader.read(&mut freqs_buf[0..])?;
-
         let mut freqs: Vec<Freq> = Vec::with_capacity(freqs_len);
-        for i in 0..freqs_len {
+        for _ in 0..freqs_len {
             freqs.push(Freq {
-                val: (freqs_buf[i * 4] as u16) << 8 | freqs_buf[i * 4 + 1] as u16,
-                count: (freqs_buf[i * 4 + 2] as u16) << 8 | freqs_buf[i * 4 + 3] as u16,
+                val: reader.read_u16::<BigEndian>()?,   // FIXME: error handling
+                count: 0,       // FIXME: kind of hacky
             });
         };
 
@@ -101,12 +78,14 @@ impl HuffmanData {
     }
 
     pub fn read(mut reader: &mut Read) -> io::Result<Option<HuffmanData>> {
+        println!("Reading freqs");
         let freqs = match HuffmanData::read_freqs(&mut reader) {
             Err(err) => return Err(err),
             Ok(Some(freqs)) => freqs,
             Ok(None) => return Ok(None),
         };
 
+        println!("Reading bitstream");
         let bs = match Bitstream::read(reader) {
             Err(err) => return Err(err),
             Ok(bs) => bs,
@@ -116,19 +95,11 @@ impl HuffmanData {
     }
 }
 
-fn find_pos(nodes: &Vec<Box<Node>>, node: &Box<Node>) -> usize {
-    // FIXME: use a binary search
-    match nodes.iter().position(|other| other.count < node.count) {
-        Some(idx) => idx,
-        None => nodes.len(),
-    }
-}
-
+// freqs should be sorted when we come in ehre
 fn build_tree(freqs: &Vec<Freq>) -> Box<Node> {
     let mut nodes: Vec<Box<Node>> = freqs.iter().
         map(|freq| Box::new(
             Node {
-                count: freq.count,
                 val: Some(freq.val),
                 left: None,
                 right: None,
@@ -141,23 +112,14 @@ fn build_tree(freqs: &Vec<Freq>) -> Box<Node> {
 
         match (lo, ro) {
             (Some(left), None) => return left,
-            (Some(ref left), Some(ref right)) if left.count as usize + right.count as usize > 65535 => {
-                println!("left: {:?}", left);
-                println!("right: {:?}", right);
-                panic!("overflow");
-            },
             (Some(left), Some(right)) => {
                 let node = Box::new(Node {
-                    count: left.count + right.count,
                     val: None,
                     left: Some(left),
                     right: Some(right),
                 });
 
-                if node.count > 0 {
-                    let idx = find_pos(&nodes, &node);
-                    nodes.insert(idx, node);
-                }
+                nodes.insert(0, node);
             },
             _ => panic!("Must have nodes to build_tree"),
         };

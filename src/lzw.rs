@@ -10,7 +10,7 @@ fn build_initial_dictionary() -> HashMap<Vec<u8>, u16> {
     dict
 }
 
-pub fn encode(data: &Vec<u8>) -> Vec<u16> {
+pub fn encode(data: &[u8]) -> Vec<u16> {
     let mut entries = build_initial_dictionary();
     let mut entriespos = 256;
 

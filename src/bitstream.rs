@@ -4,6 +4,7 @@ use std::result::Result;
 use std::io;
 use std::io::Write;
 use std::io::Read;
+use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 #[derive(Clone)]
 pub struct Bitstream {
@@ -71,13 +72,16 @@ impl Bitstream {
     }
 
     pub fn write(&self, writer: &mut Write) -> io::Result<usize> {
+        // FIXME: make this less terrible
+        let byte_len = (self.pos as f32 / 8.0).ceil() as usize;
+
         let bytes_out =
-            match writer.write(&[(self.pos >> 8) as u8, (self.pos & 0x00ff) as u8]) {
+            match writer.write_u32::<BigEndian>(self.pos as u32) {
                 Err(err) => return Err(err),
-                Ok(nb) => nb,
+                Ok(_) => 4,
             }
             +
-            match writer.write(&self.data) {
+            match writer.write(&self.data[0..byte_len]) {
                 Err(err) => return Err(err),
                 Ok(nb) => nb,
             };
@@ -85,11 +89,16 @@ impl Bitstream {
     }
 
     pub fn read(reader: &mut Read) -> io::Result<Bitstream> {
-        let mut pos_buf = [0 as u8; 2];
-        reader.read(&mut pos_buf)?;
+        let pos = match reader.read_u32::<BigEndian>() {
+            Err(err) => return Err(err),
+            Ok(pos) => pos as usize,
+        };
 
-        let pos = (pos_buf[0] as usize) << 8 | pos_buf[1] as usize;
-        let byte_len = pos / 8 + 1;
+        // FIXME: make this less terrible
+        let byte_len = (pos as f32 / 8.0).ceil() as usize;
+
+        println!("read pos {}", pos);
+        println!("byte_len {}", byte_len);
 
         let mut retval = Bitstream { pos, data: Vec::with_capacity(byte_len) };
         unsafe {

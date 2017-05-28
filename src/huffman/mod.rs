@@ -36,6 +36,8 @@ impl HuffmanData {
         let freqs_filtered_len = freqs_filtered.len() as u16;
         let freqs_filtered_buf = [(freqs_filtered_len >> 8) as u8, (freqs_filtered_len & 0xff) as u8];
 
+        println!("Writing {} freqs", freqs_filtered_len);
+
         let freqs_as_u8: Vec<u8> = freqs_filtered.iter().
             flat_map(|freq| 
                      vec![(freq.val >> 8) as u8,
@@ -57,6 +59,33 @@ impl HuffmanData {
         Ok(bytes_out)
     }
 
+    fn read_freqs(reader: &mut Read) -> io::Result<Option<Vec<Freq>>> {
+        let mut freqs_len_buf = [0 as u8; 2];
+        if reader.read(&mut freqs_len_buf)? == 0 {
+            return Ok(None);
+        };
+
+        let freqs_len = (freqs_len_buf[0] as usize) << 8 | freqs_len_buf[1] as usize;
+
+        println!("Reading {} freqs", freqs_len);
+
+        let mut freqs_buf: Vec<u8> = Vec::with_capacity(freqs_len * 4);
+        unsafe {
+            freqs_buf.set_len(freqs_len * 4);
+        }
+        reader.read(&mut freqs_buf[0..])?;
+
+        let mut freqs: Vec<Freq> = Vec::with_capacity(freqs_len);
+        for i in 0..freqs_len {
+            freqs.push(Freq {
+                val: (freqs_buf[i * 4] as u16) << 8 | freqs_buf[i * 4 + 1] as u16,
+                count: (freqs_buf[i * 4 + 2] as u16) << 8 | freqs_buf[i * 4 + 3] as u16,
+            });
+        };
+
+        Ok(Some(freqs))
+    }
+
     pub fn write(&self, mut writer: &mut Write) -> io::Result<usize> {
         let bytes_out = 
             match self.write_freqs(writer) {
@@ -71,30 +100,19 @@ impl HuffmanData {
         Ok(bytes_out)
     }
 
-    pub fn read(reader: &mut Read) -> io::Result<HuffmanData> {
-        let mut freqs_len_buf = [0 as u8; 2];
-        reader.read(&mut freqs_len_buf)?;
-
-        let freqs_len = (freqs_len_buf[0] as usize) << 8 | freqs_len_buf[1] as usize;
-
-        let mut freqs_buf: Vec<u8> = Vec::with_capacity(freqs_len * 4);
-        unsafe {
-            freqs_buf.set_len(freqs_len * 4);
-        }
-        reader.read(&mut freqs_buf[0..])?;
-
-        let mut freqs: Vec<Freq> = Vec::with_capacity(65536);
-        for i in 0..freqs_len {
-            freqs.push(Freq {
-                val: (freqs_buf[i * 4] as u16) << 8 | freqs_buf[i * 4 + 1] as u16,
-                count: (freqs_buf[i * 4 + 2] as u16) << 8 | freqs_buf[i * 4 + 3] as u16,
-            });
+    pub fn read(mut reader: &mut Read) -> io::Result<Option<HuffmanData>> {
+        let freqs = match HuffmanData::read_freqs(&mut reader) {
+            Err(err) => return Err(err),
+            Ok(Some(freqs)) => freqs,
+            Ok(None) => return Ok(None),
         };
-        freqs.shrink_to_fit();
 
-        let bs = Bitstream::read(reader)?;
+        let bs = match Bitstream::read(reader) {
+            Err(err) => return Err(err),
+            Ok(bs) => bs,
+        };
 
-        Ok(HuffmanData { freqs, bs })
+        Ok(Some(HuffmanData { freqs, bs }))
     }
 }
 
@@ -123,6 +141,11 @@ fn build_tree(freqs: &Vec<Freq>) -> Box<Node> {
 
         match (lo, ro) {
             (Some(left), None) => return left,
+            (Some(ref left), Some(ref right)) if left.count as usize + right.count as usize > 65535 => {
+                println!("left: {:?}", left);
+                println!("right: {:?}", right);
+                panic!("overflow");
+            },
             (Some(left), Some(right)) => {
                 let node = Box::new(Node {
                     count: left.count + right.count,

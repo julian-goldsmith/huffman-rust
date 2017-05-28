@@ -25,6 +25,8 @@ fn build_freq_list(data: &Vec<u16>) -> Vec<Freq> {
     freqs.retain(|freq| freq.count > 0);
     freqs.sort_by_key(|freq| freq.count);
 
+    assert!(freqs.iter().fold(0, |sum, freq| sum + freq.count as usize) < 65536);
+
     freqs
 }
 

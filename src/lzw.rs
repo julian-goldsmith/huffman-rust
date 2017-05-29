@@ -21,19 +21,24 @@ pub fn encode(data: &[u8]) -> Vec<u16> {
         encoded.push(*b);
 
         if !entries.contains_key(&encoded) {
-            let mut old_val = encoded.clone();
-            let _ = old_val.pop();
+            let old_val = Vec::from(&encoded[0..encoded.len()-1]);
 
             entries.insert(encoded, entriespos);
             entriespos += 1;
 
-            outvalues.push(*entries.get(&old_val).unwrap());
+            match entries.get(&old_val) {
+                None => panic!("Couldn't get entry"),
+                Some(val) => outvalues.push(*val),
+            };
 
             encoded = vec![*b];
         }
     }
 
-    outvalues.push(*entries.get(&encoded).unwrap());
+    match entries.get(&encoded) {
+        None => panic!("Couldn't get entry"),
+        Some(val) => outvalues.push(*val),
+    };
 
     outvalues
 }

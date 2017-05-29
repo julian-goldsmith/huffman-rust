@@ -2,7 +2,7 @@ use huffman;
 use huffman::HuffmanData;
 
 pub fn decode(data: &HuffmanData) -> Result<Vec<u16>, String> {
-    let root = huffman::build_tree(&data.freqs);
+    let root = huffman::build_tree(data.max);
     let mut node = &root;
     let mut s = Box::new(data.bs.reverse());
     let mut acc = Vec::new();

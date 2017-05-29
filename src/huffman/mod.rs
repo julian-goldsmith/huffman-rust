@@ -16,51 +16,26 @@ pub struct Node {
     right: Option<Box<Node>>,
 }
 
-#[derive(Debug,Clone,Copy)]
-pub struct Freq {
-    val: u16,
-    count: u16,
-}
-
 pub struct HuffmanData {
-    freqs: Vec<Freq>,
+    max: u16,
     bs: Bitstream
 }
 
 impl HuffmanData {
     fn write_freqs(&self, mut writer: &mut Write) -> io::Result<usize> {
-        let freqs_filtered: Vec<&Freq> = self.freqs.iter().
-            filter(|freq| freq.count > 0).
-            collect();
-
-        println!("Writing {} freqs", freqs_filtered.len());
-        writer.write_u16::<BigEndian>(freqs_filtered.len() as u16)?;
-
-        for freq in freqs_filtered.iter() {
-            writer.write_u16::<BigEndian>(freq.val)?;   // FIXME: handle errors
+        match writer.write_u16::<BigEndian>(self.max) {
+            Err(err) => Err(err),
+            Ok(()) => Ok(2),
         }
-
-        let bytes_out = 2 + (freqs_filtered.len() * 2);
-        Ok(bytes_out)
     }
 
-    fn read_freqs(reader: &mut Read) -> io::Result<Option<Vec<Freq>>> {
-        let freqs_len = match reader.read_u16::<BigEndian>() {
+    fn read_freqs(reader: &mut Read) -> io::Result<Option<u16>> {
+        let max = match reader.read_u16::<BigEndian>() {
             Err(_) => return Ok(None),                // FIXME: errors other than EOF?
-            Ok(freqs_len) => freqs_len as usize,
+            Ok(freqs_len) => freqs_len,
         };
 
-        println!("Reading {} freqs", freqs_len);
-
-        let mut freqs: Vec<Freq> = Vec::with_capacity(freqs_len);
-        for _ in 0..freqs_len {
-            freqs.push(Freq {
-                val: reader.read_u16::<BigEndian>()?,   // FIXME: error handling
-                count: 0,       // FIXME: kind of hacky
-            });
-        };
-
-        Ok(Some(freqs))
+        Ok(Some(max))
     }
 
     pub fn write(&self, mut writer: &mut Write) -> io::Result<usize> {
@@ -78,29 +53,27 @@ impl HuffmanData {
     }
 
     pub fn read(mut reader: &mut Read) -> io::Result<Option<HuffmanData>> {
-        println!("Reading freqs");
-        let freqs = match HuffmanData::read_freqs(&mut reader) {
+        let max = match HuffmanData::read_freqs(&mut reader) {
             Err(err) => return Err(err),
             Ok(Some(freqs)) => freqs,
             Ok(None) => return Ok(None),
         };
 
-        println!("Reading bitstream");
         let bs = match Bitstream::read(reader) {
             Err(err) => return Err(err),
             Ok(bs) => bs,
         };
 
-        Ok(Some(HuffmanData { freqs, bs }))
+        Ok(Some(HuffmanData { max, bs }))
     }
 }
 
 // freqs should be sorted when we come in ehre
-fn build_tree(freqs: &Vec<Freq>) -> Box<Node> {
-    let mut nodes: Vec<Box<Node>> = freqs.iter().
-        map(|freq| Box::new(
+fn build_tree(max: u16) -> Box<Node> {
+    let mut nodes: Vec<Box<Node>> = (0..max).
+        map(|i| Box::new(
             Node {
-                val: Some(freq.val),
+                val: Some(i),
                 left: None,
                 right: None,
             })).

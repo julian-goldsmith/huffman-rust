@@ -40,7 +40,7 @@ fn create_file(path: &Path) -> File {
 }
 
 fn encode(mut write_file: &File, data: &Vec<u8>) {
-    for chunk in data.chunks(2 * 65536) {
+    for chunk in data.chunks(4 * 65536) {
         let lz_enc = lzw::encode(chunk);
 
         println!("lz_enc len {}", lz_enc.len() * 2);
@@ -75,8 +75,8 @@ fn decode(mut read_file: &File) -> Vec<u8> {
 }
 
 fn main() {
-    let data = read_file(&Path::new("../excspeed.tar"));
-    let outpath = Path::new("../excspeed.tar.zzz");
+    let data = read_file(&Path::new("../excspeed.tar.small"));
+    let outpath = Path::new("../excspeed.tar.small.zzz");
 
     let mut write_file = create_file(outpath);
     encode(&mut write_file, &data);

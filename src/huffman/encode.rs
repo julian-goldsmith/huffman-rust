@@ -8,7 +8,7 @@ enum State<'a> {
     Done,
 }
 
-fn precalc_bitstreams(max: u16) -> Result<Vec<Option<Bitstream>>,()> {
+fn precalc_bitstreams(max: u32) -> Result<Vec<Option<Bitstream>>,()> {
     let root = huffman::build_tree(max);
 
     let mut values: Vec<Option<Bitstream>> = (0..max).map(|_| None).collect();
@@ -48,7 +48,7 @@ fn precalc_bitstreams(max: u16) -> Result<Vec<Option<Bitstream>>,()> {
     }
 }
 
-pub fn encode(data: &Vec<u16>) -> Result<Box<HuffmanData>,()> {
+pub fn encode(data: &Vec<u32>) -> Result<Box<HuffmanData>,()> {
     let max = *data.iter().max().unwrap() + 1;
     let streams = precalc_bitstreams(max).unwrap();
     let bs = data.iter().

@@ -1,21 +1,20 @@
 use std::collections::HashMap;
 
-fn build_initial_dictionary() -> HashMap<Vec<u8>, u16> {
+fn build_initial_dictionary() -> HashMap<Vec<u8>, u32> {
     let mut dict = HashMap::new();
 
     for i in 0..256 {
-        dict.insert(vec![i as u8], i as u16);
+        dict.insert(vec![i as u8], i as u32);
     };
 
     dict
 }
 
-pub fn encode(data: &[u8]) -> Vec<u16> {
+pub fn encode(data: &[u8]) -> Vec<u32> {
     let mut entries = build_initial_dictionary();
-    let mut entriespos = 256;
 
     let mut encoded: Vec<u8> = Vec::new();
-    let mut outvalues: Vec<u16> = Vec::new();
+    let mut outvalues: Vec<u32> = Vec::new();
 
     for b in data {
         encoded.push(*b);
@@ -23,8 +22,8 @@ pub fn encode(data: &[u8]) -> Vec<u16> {
         if !entries.contains_key(&encoded) {
             let old_val = Vec::from(&encoded[0..encoded.len()-1]);
 
-            entries.insert(encoded, entriespos);
-            entriespos += 1;
+            let count = entries.len() as u32;
+            entries.insert(encoded, count);
 
             match entries.get(&old_val) {
                 None => panic!("Couldn't get entry"),
@@ -43,7 +42,7 @@ pub fn encode(data: &[u8]) -> Vec<u16> {
     outvalues
 }
 
-pub fn decode(data: &Vec<u16>) -> Vec<u8> {
+pub fn decode(data: &Vec<u32>) -> Vec<u8> {
     let mut entries: Vec<Vec<u8>> = (0..256).map(|i| vec![i as u8]).collect();
     let mut outbytes: Vec<u8> = Vec::new();
 
@@ -54,7 +53,7 @@ pub fn decode(data: &Vec<u16>) -> Vec<u8> {
         let mut val = entries[prev_code as usize].clone();
 
         val.push(
-            if *code == entries.len() as u16 {
+            if *code == entries.len() as u32 {
                 entries[prev_code as usize][0]
             } else {
                 entries[*code as usize][0]

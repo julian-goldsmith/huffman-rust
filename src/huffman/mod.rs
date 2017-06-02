@@ -11,26 +11,26 @@ pub use self::decode::decode;
 
 #[derive(Debug)]
 pub struct Node {
-    val: Option<u16>,
+    val: Option<u32>,
     left: Option<Box<Node>>,
     right: Option<Box<Node>>,
 }
 
 pub struct HuffmanData {
-    max: u16,
+    max: u32,
     bs: Bitstream
 }
 
 impl HuffmanData {
     fn write_freqs(&self, mut writer: &mut Write) -> io::Result<usize> {
-        match writer.write_u16::<BigEndian>(self.max) {
+        match writer.write_u32::<BigEndian>(self.max) {
             Err(err) => Err(err),
             Ok(()) => Ok(2),
         }
     }
 
-    fn read_freqs(reader: &mut Read) -> io::Result<Option<u16>> {
-        let max = match reader.read_u16::<BigEndian>() {
+    fn read_freqs(reader: &mut Read) -> io::Result<Option<u32>> {
+        let max = match reader.read_u32::<BigEndian>() {
             Err(_) => return Ok(None),                // FIXME: errors other than EOF?
             Ok(freqs_len) => freqs_len,
         };
@@ -69,7 +69,7 @@ impl HuffmanData {
 }
 
 // freqs should be sorted when we come in ehre
-fn build_tree(max: u16) -> Box<Node> {
+fn build_tree(max: u32) -> Box<Node> {
     let mut nodes: Vec<Box<Node>> = (0..max).
         map(|i| Box::new(
             Node {

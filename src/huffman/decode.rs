@@ -1,7 +1,7 @@
 use huffman;
 use huffman::HuffmanData;
 
-pub fn decode(data: &HuffmanData) -> Result<Vec<u16>, String> {
+pub fn decode(data: &HuffmanData) -> Result<Vec<u32>, String> {
     let root = huffman::build_tree(data.max);
     let mut node = &root;
     let mut s = Box::new(data.bs.reverse());

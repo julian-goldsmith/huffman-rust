@@ -13,26 +13,31 @@ fn build_initial_dictionary() -> HashMap<Vec<u8>, u32> {
 pub fn encode(data: &[u8]) -> Vec<u32> {
     let mut entries = build_initial_dictionary();
 
-    let mut encoded: Vec<u8> = Vec::new();
+    let mut encoded: Vec<u8> = vec![data[0]];
     let mut outvalues: Vec<u32> = Vec::new();
 
-    for b in data {
-        encoded.push(*b);
+    let mut i = 1;
 
-        if !entries.contains_key(&encoded) {
-            let old_val = Vec::from(&encoded[0..encoded.len()-1]);
+    let mut out_val = 0;
 
-            let count = entries.len() as u32;
-            entries.insert(encoded, count);
-
-            match entries.get(&old_val) {
-                None => panic!("Couldn't get entry"),
-                Some(val) => outvalues.push(*val),
+    while i < data.len() {
+        while i < data.len() {
+            match entries.get(&encoded) {
+                None => break,
+                Some(val) => { out_val = *val; },
             };
 
-            encoded = vec![*b];
-        }
-    }
+            encoded.push(data[i]);
+            i += 1;
+        };
+
+        let count = entries.len() as u32;
+        entries.insert(encoded, count);
+
+        outvalues.push(out_val);
+
+        encoded = vec![data[i - 1]];
+    };
 
     match entries.get(&encoded) {
         None => panic!("Couldn't get entry"),

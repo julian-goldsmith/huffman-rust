@@ -18,15 +18,15 @@ impl Bitstream {
     }
 
     pub fn append(&mut self, val: u8) {
-        if self.pos >= self.data.len() * 8 {
+        if self.pos >= self.data.len() << 3 {
             self.data.push(0);
             self.data.push(0);
             self.data.push(0);
             self.data.push(0);
         }
 
-        let idx = (self.pos / 8) as usize;
-        let bitidx = self.pos % 8;
+        let idx = (self.pos >> 3) as usize;
+        let bitidx = self.pos & 0x07;
 
         self.data[idx] = 
             self.data[idx] 
@@ -43,12 +43,12 @@ impl Bitstream {
     }
 
     pub fn get(&self, pos: usize) -> u8 {
-        let idx = (pos / 8) as usize;
-        let bitidx = pos %8;
+        let idx = pos >> 3;
+        let bitidx = pos & 0x07;
 
         let byte = self.data[idx];
 
-        (byte & (1 << bitidx)) >> bitidx
+        (byte >> bitidx) & 1
     }
 
     pub fn pop(&mut self) -> Option<u8> {

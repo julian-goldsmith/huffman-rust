@@ -66,6 +66,7 @@ fn decode(mut read_file: &File) -> Vec<u8> {
         };
 
         let huff_dec = huffman::decode(&hd).unwrap();
+
         let mut lz_dec = lzw::decode(&huff_dec);
 
         bytes.append(&mut lz_dec);
@@ -82,5 +83,5 @@ fn main() {
     let mut read_file = open_file(outpath);
     let lz_dec = decode(&mut read_file);
 
-    assert_eq!(lz_dec, data);
+    assert_eq!(data, lz_dec);
 }

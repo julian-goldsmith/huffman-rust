@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::mem;
 use std::ptr;
 
@@ -9,55 +8,70 @@ struct Bucket {
     pub values: Vec<u32>,
 }
 
-fn create_hash_table() -> [Bucket; NUM_BUCKETS] {
-    unsafe {
-        let mut buckets: [Bucket; NUM_BUCKETS] = mem::uninitialized();
-
-        for (i, element) in buckets.iter_mut().enumerate() {
-            let bucket = Bucket { keys: Vec::new(), values: Vec::new() };
-
-            ptr::write(element, bucket);
-        };
-
-        buckets
-    }
+struct HashTable {
+    pub buckets: [Bucket; NUM_BUCKETS],
+    pub count: u32,
 }
 
-fn hash_insert(buckets: &mut [Bucket; NUM_BUCKETS], key: &[u8], value: u32) {
-    let hash = fnv_hash(key);
-    let bi = hash as usize & (NUM_BUCKETS - 1);
-    let mut bucket = &mut buckets[bi];
+impl HashTable {
+    pub fn new() -> HashTable {
+        unsafe {
+            let mut table: HashTable = mem::uninitialized();
 
-    assert_eq!(bucket.keys.len(), bucket.values.len());
+            for (i, element) in table.buckets.iter_mut().enumerate() {
+                let bucket = Bucket { keys: Vec::new(), values: Vec::new() };
 
-    bucket.keys.push(hash);
-    bucket.values.push(value);
-}
+                ptr::write(element, bucket);
+            };
 
-fn hash_get_by_hash(buckets: &[Bucket; NUM_BUCKETS], hash: u64) -> Option<u32> {
-    let bi = hash as usize & (NUM_BUCKETS - 1);
-    let bucket = &buckets[bi];
-
-    for i in 0..bucket.keys.len() {
-        if bucket.keys[i] == hash {
-            return Some(bucket.values[i]);
+            table
         }
     }
 
-    return None;
+    pub fn insert(&mut self, key: &[u8], value: u32) {
+        let hash = fnv_hash(key);
+        let bi = hash as usize & (NUM_BUCKETS - 1);
+        let mut bucket = &mut self.buckets[bi];
+
+        assert_eq!(bucket.keys.len(), bucket.values.len());
+
+        bucket.keys.push(hash);
+        bucket.values.push(value);
+        self.count += 1;
+    }
+
+    pub fn get_by_hash(&self, hash: u64) -> Option<u32> {
+        let bi = hash as usize & (NUM_BUCKETS - 1);
+        let bucket = &self.buckets[bi];
+
+        for i in 0..bucket.keys.len() {
+            if bucket.keys[i] == hash {
+                return Some(bucket.values[i]);
+            }
+        }
+
+        return None;
+    }
 }
 
+#[inline]
+fn fnv_hash_partial(h: u64, b: u8) -> u64 {
+    (h ^ b as u64).wrapping_mul(0x100000001b3)
+}
+
+const FNV_BASE: u64 = 0xcbf29ce484222325;
+
 fn fnv_hash(key: &[u8]) -> u64 {
-    let mut h = 0xcbf29ce484222325;
+    let mut h = FNV_BASE;
 
     for b in key {
-        h = (h ^ *b as u64).wrapping_mul(0x100000001b3);
+        h = fnv_hash_partial(h, *b);
     };
 
     h
 }
 
-fn build_initial_dictionary<'a>(mut buckets: &mut [Bucket; NUM_BUCKETS]) {
+fn build_initial_dictionary<'a>(table: &mut HashTable) {
     let mut arr = [0 as u8; 256];
 
     for i in 0..256 {
@@ -65,16 +79,13 @@ fn build_initial_dictionary<'a>(mut buckets: &mut [Bucket; NUM_BUCKETS]) {
     };
 
     for i in 0..256 {
-        //dict.insert(&arr[i..i+1], i as u32);
-        hash_insert(&mut buckets, &arr[i..i+1], i as u32);
+        table.insert(&arr[i..i+1], i as u32);
     };
 }
 
 pub fn encode(data: &[u8]) -> Vec<u32> {
-    let mut buckets = create_hash_table();
-    build_initial_dictionary(&mut buckets);
-
-    let mut count = 256;
+    let mut table = HashTable::new();
+    build_initial_dictionary(&mut table);
 
     let mut encoded: &[u8] = &data[0..1];
     let mut outvalues: Vec<u32> = Vec::new();
@@ -85,9 +96,12 @@ pub fn encode(data: &[u8]) -> Vec<u32> {
     let mut out_val = 0;
 
     while upper < data.len() {
+        let mut hash = FNV_BASE;
+
         while upper < data.len() {
-            let hash = fnv_hash(encoded);
-            match hash_get_by_hash(&buckets, hash) {
+            hash = fnv_hash_partial(hash, data[upper - 1]);
+
+            match table.get_by_hash(hash) {
                 None => break,
                 Some(val) => { out_val = val; },
             };
@@ -96,9 +110,8 @@ pub fn encode(data: &[u8]) -> Vec<u32> {
             encoded = &data[lower..upper];
         };
 
-        //entries.insert(encoded, count);
-        hash_insert(&mut buckets, encoded, count);
-        count += 1;
+        let count = table.count;
+        table.insert(encoded, count);
 
         outvalues.push(out_val);
 
@@ -107,7 +120,7 @@ pub fn encode(data: &[u8]) -> Vec<u32> {
     };
 
     let hash = fnv_hash(encoded);
-    match hash_get_by_hash(&buckets, hash) {
+    match table.get_by_hash(hash) {
         None => panic!("Couldn't get entry"),
         Some(val) => outvalues.push(val),
     };

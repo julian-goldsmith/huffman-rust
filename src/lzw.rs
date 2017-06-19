@@ -1,34 +1,40 @@
 use std::collections::HashMap;
 
-fn build_initial_dictionary() -> HashMap<Vec<u8>, u32> {
+fn build_initial_dictionary<'a>(arr: &'a mut [u8; 256]) -> HashMap<&'a [u8], u32> {
     let mut dict = HashMap::new();
 
     for i in 0..256 {
-        dict.insert(vec![i as u8], i as u32);
+        arr[i] = i as u8;
+    };
+
+    for i in 0..256 {
+        dict.insert(&arr[i..i+1], i as u32);
     };
 
     dict
 }
 
 pub fn encode(data: &[u8]) -> Vec<u32> {
-    let mut entries = build_initial_dictionary();
+    let mut arr = [0 as u8; 256];
+    let mut entries = build_initial_dictionary(&mut arr);
 
-    let mut encoded: Vec<u8> = vec![data[0]];
+    let mut encoded: &[u8] = &data[0..1];
     let mut outvalues: Vec<u32> = Vec::new();
 
-    let mut i = 1;
+    let mut lower = 0;
+    let mut upper = 1;
 
     let mut out_val = 0;
 
-    while i < data.len() {
-        while i < data.len() {
+    while upper < data.len() {
+        while upper < data.len() {
             match entries.get(&encoded) {
                 None => break,
                 Some(val) => { out_val = *val; },
             };
 
-            encoded.push(data[i]);
-            i += 1;
+            upper += 1;
+            encoded = &data[lower..upper];
         };
 
         let count = entries.len() as u32;
@@ -36,7 +42,8 @@ pub fn encode(data: &[u8]) -> Vec<u32> {
 
         outvalues.push(out_val);
 
-        encoded = vec![data[i - 1]];
+        lower = upper - 1;
+        encoded = &data[lower..upper];
     };
 
     match entries.get(&encoded) {

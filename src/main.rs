@@ -43,6 +43,7 @@ fn encode(mut write_file: &File, data: &Vec<u8>) {
     for chunk in data.chunks(16 * 65536) {
         let lz_enc = lzw::encode(chunk);
         
+        /*
         let huff_enc = match huffman::encode(&lz_enc) {
             Ok(huff_enc) => huff_enc,
             Err(_) => panic!("Error encoding"),
@@ -52,6 +53,7 @@ fn encode(mut write_file: &File, data: &Vec<u8>) {
             Ok(n) => println!("huff_enc len {} bytes", n),
             _ => panic!("Couldn't write file"),
         };
+        */
     };
 }
 
@@ -80,8 +82,8 @@ fn main() {
     let mut write_file = create_file(outpath);
     encode(&mut write_file, &data);
 
-    let mut read_file = open_file(outpath);
-    let lz_dec = decode(&mut read_file);
+    //let mut read_file = open_file(outpath);
+    //let lz_dec = decode(&mut read_file);
 
-    assert_eq!(data, lz_dec);
+    //assert_eq!(data, lz_dec);
 }

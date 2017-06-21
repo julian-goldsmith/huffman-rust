@@ -2,9 +2,8 @@ use huffman;
 use huffman::HuffmanData;
 
 pub fn decode(data: &HuffmanData) -> Result<Vec<u32>, String> {
-    let mut nodes = Vec::new();
-    let root = huffman::build_tree(data.max, &mut nodes);
-    let mut node = root;
+    let root = huffman::build_tree(data.max);
+    let mut node = &root;
     let mut s = Box::new(data.bs.reverse());
     let mut acc = Vec::new();
 

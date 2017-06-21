@@ -3,19 +3,19 @@ use huffman;
 use huffman::*;
 
 enum State<'a> {
-    Right(&'a Node<'a>),
-    Left(&'a Node<'a>),
+    Right(&'a Box<Node>),
+    Left(&'a Box<Node>),
     Done,
 }
 
 fn precalc_bitstreams(max: u32) -> Result<Vec<Option<Bitstream>>,()> {
+    let root = huffman::build_tree(max);
+
     let mut values: Vec<Option<Bitstream>> = (0..max).map(|_| None).collect();
     let mut history: Vec<State> = Vec::new();
     let mut acc = Bitstream::new();
 
-    let mut nodes = Vec::new();
-    let root = huffman::build_tree(max, &mut nodes);
-    let initial_state = State::Left(root);
+    let initial_state = State::Left(&root);
     history.push(initial_state);
 
     loop {

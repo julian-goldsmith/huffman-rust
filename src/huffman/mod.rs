@@ -10,10 +10,10 @@ pub use self::encode::encode;
 pub use self::decode::decode;
 
 #[derive(Debug)]
-pub struct Node<'a> {
+pub struct Node {
     val: Option<u32>,
-    left: Option<&'a Node<'a>>,
-    right: Option<&'a Node<'a>>,
+    left: Option<Box<Node>>,
+    right: Option<Box<Node>>,
 }
 
 pub struct HuffmanData {
@@ -68,39 +68,33 @@ impl HuffmanData {
     }
 }
 
-fn build_tree<'a>(max: u32, nodes: &'a mut Vec<Box<Node<'a>>>) -> &'a Node<'a> {
-    let mut nodes_ref: Vec<&'a Node<'a>> = Vec::new();
-
-    for i in 0..max {
-        nodes.push(
-            Box::new(Node {
+// freqs should be sorted when we come in ehre
+fn build_tree(max: u32) -> Box<Node> {
+    let mut nodes: Vec<Box<Node>> = (0..max).
+        map(|i| Box::new(
+            Node {
                 val: Some(i),
                 left: None,
                 right: None,
-            }));
-
-        nodes_ref.push(&nodes[nodes.len()]);
-    }
+            })).
+        collect();
 
     loop {
-        let lo = nodes_ref.pop();
-        let ro = nodes_ref.pop();
+        let lo = nodes.pop();
+        let ro = nodes.pop();
 
         match (lo, ro) {
-            (Some(left), None) => break,
+            (Some(left), None) => return left,
             (Some(left), Some(right)) => {
-                let node = Node {
+                let node = Box::new(Node {
                     val: None,
                     left: Some(left),
                     right: Some(right),
-                };
+                });
 
-                nodes.push(node);
-                nodes_ref.insert(0, &nodes[nodes.len()]);
+                nodes.insert(0, node);
             },
             _ => panic!("Must have nodes to build_tree"),
         };
     };
-
-    nodes_ref[0]
 }

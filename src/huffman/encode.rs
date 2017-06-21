@@ -8,6 +8,8 @@ enum State<'a> {
     Done,
 }
 
+// we could keep this around between blocks.  we would need to check if the new max is higher, and
+// add new elements as needed
 fn precalc_bitstreams(max: u32) -> Result<Vec<Option<Bitstream>>,()> {
     let root = huffman::build_tree(max);
 
@@ -52,12 +54,12 @@ fn precalc_bitstreams(max: u32) -> Result<Vec<Option<Bitstream>>,()> {
     }
 }
 
-pub fn encode(data: &Vec<u32>) -> Result<Box<HuffmanData>,()> {
+pub fn encode(data: &Vec<u32>) -> Result<HuffmanData,()> {
     let max = *data.iter().max().unwrap() + 1;
     let streams = precalc_bitstreams(max).unwrap();
     let bs = data.iter().
         map(|c| streams[*c as usize].as_ref().unwrap()).
         fold(Bitstream::new(), 
              |mut acc, x| { acc.append_bitstream(x); acc });
-    Ok(Box::from(HuffmanData { max, bs }))
+    Ok(HuffmanData { max, bs })
 }

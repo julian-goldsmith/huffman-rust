@@ -10,10 +10,9 @@ pub use self::encode::encode;
 pub use self::decode::decode;
 
 #[derive(Debug)]
-pub struct Node {
-    val: Option<u32>,
-    left: Option<Box<Node>>,
-    right: Option<Box<Node>>,
+pub enum Node {
+    Leaf(u32),
+    Tree { left: Box<Node>, right: Box<Node> },
 }
 
 pub struct HuffmanData {
@@ -68,15 +67,9 @@ impl HuffmanData {
     }
 }
 
-// freqs should be sorted when we come in ehre
 fn build_tree(max: u32) -> Box<Node> {
     let mut nodes: Vec<Box<Node>> = (0..max).
-        map(|i| Box::new(
-            Node {
-                val: Some(i),
-                left: None,
-                right: None,
-            })).
+        map(|i| Box::new(Node::Leaf(i))).
         collect();
 
     loop {
@@ -86,11 +79,7 @@ fn build_tree(max: u32) -> Box<Node> {
         match (lo, ro) {
             (Some(left), None) => return left,
             (Some(left), Some(right)) => {
-                let node = Box::new(Node {
-                    val: None,
-                    left: Some(left),
-                    right: Some(right),
-                });
+                let node = Box::new(Node::Tree { left, right });
 
                 nodes.insert(0, node);
             },

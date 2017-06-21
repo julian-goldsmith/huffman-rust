@@ -3,8 +3,8 @@ use huffman;
 use huffman::*;
 
 enum State<'a> {
-    Right(&'a Box<Node>),
-    Left(&'a Box<Node>),
+    Right(&'a Node),
+    Left(&'a Node),
     Done,
 }
 
@@ -15,7 +15,7 @@ fn precalc_bitstreams(max: u32) -> Result<Vec<Option<Bitstream>>,()> {
     let mut history: Vec<State> = Vec::new();
     let mut acc = Bitstream::new();
 
-    let initial_state = State::Left(&root);
+    let initial_state = State::Left(root.as_ref());
     history.push(initial_state);
 
     loop {
@@ -25,8 +25,10 @@ fn precalc_bitstreams(max: u32) -> Result<Vec<Option<Bitstream>>,()> {
                 match curr_state {
                     State::Done => { let _ = acc.pop(); },
 
-                    State::Right(node) if node.val.is_none() => {
-                        let next_node = node.right.as_ref().unwrap();
+                    State::Right(&Node::Leaf(val)) | State::Left(&Node::Leaf(val)) => values[val as usize] = Some(acc.clone()),
+
+                    State::Right(&Node::Tree { left: _, ref right }) => {
+                        let next_node = right.as_ref();
 
                         acc.pop();
                         acc.append(1);
@@ -34,15 +36,17 @@ fn precalc_bitstreams(max: u32) -> Result<Vec<Option<Bitstream>>,()> {
                         history.push(State::Left(next_node));
                     },
 
-                    State::Left(node) if node.val.is_none() => {
-                        let next_node = node.left.as_ref().unwrap();
+                    State::Left(node @ &Node::Tree { left: _, right: _ }) => {
+                        let left = match node {
+                            &Node::Tree { ref left, right: _ } => left,
+                            _ => unreachable!(),
+                        };
+                        let next_node = left.as_ref();
 
                         acc.append(0);
                         history.push(State::Right(node));
                         history.push(State::Left(next_node));
                     },
-
-                    State::Right(node) | State::Left(node) => values[node.val.unwrap() as usize] = Some(acc.clone()),
                 },
         }
     }

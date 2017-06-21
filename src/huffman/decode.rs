@@ -1,5 +1,5 @@
 use huffman;
-use huffman::HuffmanData;
+use huffman::{HuffmanData, Node};
 
 pub fn decode(data: &HuffmanData) -> Result<Vec<u32>, String> {
     let root = huffman::build_tree(data.max);
@@ -8,16 +8,15 @@ pub fn decode(data: &HuffmanData) -> Result<Vec<u32>, String> {
     let mut acc = Vec::new();
 
     loop {
-        match (node.val, &node.left, &node.right) {
-            (Some(val), _, _) => { acc.push(val); node = &root; },
-            (None, &Some(ref left), &Some(ref right)) =>
+        match node.as_ref() {
+            &Node::Leaf(val) => { acc.push(val); node = &root; },
+            &Node::Tree { ref left, ref right } =>
                 match s.pop() {
                     Some(0) => { node = &left; },
                     Some(1) => { node = &right; },
                     None => return Ok(acc),
                     _ => return Err(String::from("Bad value from Bitstream in huffman::decode::decode_internal")),
                 },
-            _ => return Err(String::from("Invalid state in huffman::decode::decode_internal")),
         }
     }
 }

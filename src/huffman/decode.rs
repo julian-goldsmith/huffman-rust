@@ -4,14 +4,14 @@ use huffman::{HuffmanData, Node};
 pub fn decode(data: &HuffmanData) -> Result<Vec<u32>, String> {
     let root = huffman::build_tree(data.max);
     let mut node = &root;
-    let mut s = Box::new(data.bs.reverse());
+    let mut s = Box::new(data.bs.clone());
     let mut acc = Vec::new();
 
     loop {
         match node.as_ref() {
             &Node::Leaf(val) => { acc.push(val); node = &root; },
             &Node::Tree { ref left, ref right } =>
-                match s.pop() {
+                match s.pop_start() {
                     Some(0) => { node = &left; },
                     Some(1) => { node = &right; },
                     None => return Ok(acc),

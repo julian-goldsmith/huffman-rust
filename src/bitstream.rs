@@ -1,4 +1,4 @@
-use std::ops::Add;
+use std::ops::{Add,Range};
 use std::fmt::*;
 use std::result::Result;
 use std::io;
@@ -8,43 +8,54 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 #[derive(Clone)]
 pub struct Bitstream {
-    pub pos: usize,
+    pos: Range<usize>,
     data: Vec<u8>,
 }
 
 impl Bitstream {
     pub fn new() -> Bitstream {
-        Bitstream { pos: 0, data: vec![0; 8] }
+        Bitstream { pos: (0..0), data: vec![0; 8] }
+    }
+
+    #[inline(always)]
+    fn get_indices(pos: usize) -> (usize, usize) {
+        let idx = (pos >> 3) as usize;
+        let bitidx = pos & 0x07;
+
+        (idx, bitidx)
+    }
+
+    fn extend(&mut self) {
+        self.data.push(0);
+        self.data.push(0);
+        self.data.push(0);
+        self.data.push(0);
     }
 
     pub fn append(&mut self, val: u8) {
-        if self.pos >= self.data.len() << 3 {
-            self.data.push(0);
-            self.data.push(0);
-            self.data.push(0);
-            self.data.push(0);
-        }
+        let (idx, bitidx) = Bitstream::get_indices(self.pos.end);
 
-        let idx = (self.pos >> 3) as usize;
-        let bitidx = self.pos & 0x07;
+        if idx >= self.data.len() {
+            self.extend();
+        };
 
         self.data[idx] = 
             self.data[idx] 
                 & !(1 << bitidx) 
                 | ((val & 1) << bitidx);
-        self.pos += 1;
+        self.pos.end += 1;
     }
 
     pub fn append_bitstream(&mut self, other: &Bitstream) {
         // FIXME: do this better
-        for j in 0..other.pos {
+        for j in other.pos.clone() {
             self.append(other.get(j));
         }
     }
 
-    pub fn get(&self, pos: usize) -> u8 {
-        let idx = pos >> 3;
-        let bitidx = pos & 0x07;
+    #[inline]
+    fn get(&self, pos: usize) -> u8 {
+        let (idx, bitidx) = Bitstream::get_indices(pos);
 
         let byte = self.data[idx];
 
@@ -52,31 +63,36 @@ impl Bitstream {
     }
 
     pub fn pop(&mut self) -> Option<u8> {
-        if self.pos == 0 {
+        if self.pos.end == 0 {
             None
         } else {
-            self.pos -= 1;
-            Some(self.get(self.pos))
+            self.pos.end -= 1;
+            Some(self.get(self.pos.end))
         }
     }
 
-    pub fn reverse(&self) -> Bitstream {
-        // FIXME: see if there's a better way to do this
-        let mut bs = Bitstream::new();
+    pub fn pop_start(&mut self) -> Option<u8> {
+        if self.pos.start == self.pos.end {
+            None
+        } else {
+            self.pos.start += 1;
+            Some(self.get(self.pos.start - 1))
+        }
+    }
 
-        for i in 0..self.pos {
-            bs.append(self.get(self.pos - i - 1));
-        };
-
-        bs
+    fn ceil_div(num: usize, denom: usize) -> usize {
+        (num + denom - 1) / denom
     }
 
     pub fn write(&self, writer: &mut Write) -> io::Result<usize> {
         // FIXME: make this less terrible
-        let byte_len = (self.pos as f32 / 8.0).ceil() as usize;
+        let byte_len = Bitstream::ceil_div(self.pos.end, 8);
+
+        // TODO: handle this
+        assert_eq!(self.pos.start, 0);
 
         let bytes_out =
-            match writer.write_u32::<BigEndian>(self.pos as u32) {
+            match writer.write_u32::<BigEndian>(self.pos.end as u32) {
                 Err(err) => return Err(err),
                 Ok(_) => 4,
             }
@@ -97,7 +113,7 @@ impl Bitstream {
         // FIXME: make this less terrible
         let byte_len = (pos as f32 / 8.0).ceil() as usize;
 
-        let mut retval = Bitstream { pos, data: Vec::with_capacity(byte_len) };
+        let mut retval = Bitstream { pos: (0..pos), data: Vec::with_capacity(byte_len) };
         unsafe {
             retval.data.set_len(byte_len);
         };
@@ -136,7 +152,7 @@ impl Add<u8> for Bitstream {
 
 impl Display for Bitstream {
     fn fmt(&self, f: &mut Formatter) -> Result<(), Error> {
-        for i in 0..self.pos {
+        for i in self.pos.clone() {
             let bitstr = match self.get(i) {
                 0 => "0",
                 1 => "1",

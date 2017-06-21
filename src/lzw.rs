@@ -18,7 +18,7 @@ impl HashTable {
         unsafe {
             let mut table: HashTable = mem::uninitialized();
 
-            for (i, element) in table.buckets.iter_mut().enumerate() {
+            for (_, element) in table.buckets.iter_mut().enumerate() {
                 let bucket = Bucket { keys: Vec::new(), values: Vec::new() };
 
                 ptr::write(element, bucket);
@@ -54,7 +54,7 @@ impl HashTable {
     }
 }
 
-#[inline]
+#[inline(always)]
 fn fnv_hash_partial(h: u64, b: u8) -> u64 {
     (h ^ b as u64).wrapping_mul(0x100000001b3)
 }

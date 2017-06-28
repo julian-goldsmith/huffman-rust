@@ -4,6 +4,7 @@ use bitstream::Bitstream;
 use std::io;
 use std::io::Write;
 use std::io::Read;
+use std::rc::Rc;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 pub use self::encode::encode;
@@ -12,7 +13,7 @@ pub use self::decode::decode;
 #[derive(Debug)]
 pub enum Node {
     Leaf(u32),
-    Tree { left: Box<Node>, right: Box<Node> },
+    Tree { left: Rc<Node>, right: Rc<Node> },
 }
 
 pub struct HuffmanData {
@@ -67,9 +68,9 @@ impl HuffmanData {
     }
 }
 
-fn build_tree(max: u32) -> Box<Node> {
-    let mut nodes: Vec<Box<Node>> = (0..max).
-        map(|i| Box::new(Node::Leaf(i))).
+fn build_tree(max: u32) -> Rc<Node> {
+    let mut nodes: Vec<Rc<Node>> = (0..max).
+        map(|i| Rc::new(Node::Leaf(i))).
         collect();
 
     loop {
@@ -79,7 +80,7 @@ fn build_tree(max: u32) -> Box<Node> {
         match (lo, ro) {
             (Some(left), None) => return left,
             (Some(left), Some(right)) => {
-                let node = Box::new(Node::Tree { left, right });
+                let node = Rc::new(Node::Tree { left, right });
 
                 nodes.insert(0, node);
             },

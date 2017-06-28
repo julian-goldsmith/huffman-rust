@@ -74,8 +74,8 @@ fn decode(mut read_file: &File) -> Vec<u8> {
 }
 
 fn main() {
-    let data = read_file(&Path::new("../excspeed.tar.small"));
-    let outpath = Path::new("../excspeed.tar.small.zzz");
+    let data = read_file(&Path::new("../excspeed.tar"));
+    let outpath = Path::new("../excspeed.tar.zzz");
 
     let mut write_file = create_file(outpath);
     encode(&mut write_file, &data);

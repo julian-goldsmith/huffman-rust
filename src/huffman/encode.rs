@@ -11,13 +11,15 @@ enum State<'a> {
 // we could keep this around between blocks.  we would need to check if the new max is higher, and
 // add new elements as needed
 fn precalc_bitstreams(max: u32) -> Result<Vec<Option<Bitstream>>,()> {
+    // TODO: byte-wise table rather than bit-
+    // https://www.reddit.com/r/rust/comments/54jlxf/huffman_coding_implementation_in_rust/d82frgt/
     let root = huffman::build_tree(max);
 
     let mut values: Vec<Option<Bitstream>> = (0..max).map(|_| None).collect();
     let mut history: Vec<State> = Vec::new();
     let mut acc = Bitstream::new();
 
-    let initial_state = State::Left(root.as_ref());
+    let initial_state = State::Left(&root);
     history.push(initial_state);
 
     loop {
@@ -35,7 +37,7 @@ fn precalc_bitstreams(max: u32) -> Result<Vec<Option<Bitstream>>,()> {
                         acc.pop();
                         acc.append(1);
                         history.push(State::Done);
-                        history.push(State::Left(next_node));
+                        history.push(State::Left(&next_node));
                     },
 
                     State::Left(node @ &Node::Tree { left: _, right: _ }) => {
@@ -43,11 +45,11 @@ fn precalc_bitstreams(max: u32) -> Result<Vec<Option<Bitstream>>,()> {
                             &Node::Tree { ref left, right: _ } => left,
                             _ => unreachable!(),
                         };
-                        let next_node = left.as_ref();
+                        let next_node = left;
 
                         acc.append(0);
                         history.push(State::Right(node));
-                        history.push(State::Left(next_node));
+                        history.push(State::Left(&next_node));
                     },
                 },
         }

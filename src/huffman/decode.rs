@@ -3,12 +3,12 @@ use huffman::{HuffmanData, Node};
 
 pub fn decode(data: &HuffmanData) -> Result<Vec<u32>, String> {
     let root = huffman::build_tree(data.max);
-    let mut node = &root;
+    let mut node: &Node = &root;
     let mut s = Box::new(data.bs.clone());
     let mut acc = Vec::new();
 
     loop {
-        match node.as_ref() {
+        match node {
             &Node::Leaf(val) => { acc.push(val); node = &root; },
             &Node::Tree { ref left, ref right } =>
                 match s.pop_start() {

@@ -24,37 +24,38 @@ pub fn encode(data: &[u8]) -> Box<[u8]> {
 }
 
 pub fn decode(in_data: &[u8]) -> Box<[u8]> {
-    /*
     let idx = BigEndian::read_u32(&in_data[0..5]) as usize;
     let data = &in_data[4..];
-    let mut out = iter::repeat(Vec::new()).take(data.len()).collect::<Vec<_>>();
 
-    for _ in 0..data.len() {
-        for i in 0..data.len() {
-            out[i].insert(0, data[i]);
-        };
-
-        out.sort();
-    };
-
-    out[idx].clone().into_boxed_slice();
-    */
-
-    let mut num_appearances = iter::repeat(0).take(256).collect::<Vec<_>>();
+    let mut num_appearances = Vec::<(u8, usize)>::new();
     let mut num_less_than = iter::repeat(0).take(256).collect::<Vec<_>>();
     
-    for *c in data {
-        num_appearances[c as usize] += 1;
+    for &c in data {
+        let n = num_appearances.iter().filter(|a| a.0 == c).count();
 
-        for i in 0..c {
-            num_less_than[c as usize] += 1;
+        num_appearances.push((c, n));
+
+        for i in (c as usize + 1)..256 {
+            num_less_than[i] += 1;
         };
     };
 
-    let out_bytes = Vec::<u8>::new();
-    for i in 0..data.len() {
-        
+    let mut out_bytes = Vec::<u8>::new();
+    out_bytes.resize(data.len(), 0);
+
+    let mut ap = num_appearances[idx];
+    out_bytes[data.len() - 1] = ap.0;
+
+    for i in 2..(data.len() + 1) {
+        println!("{:?}    {}    {}", ap, num_less_than[ap.0 as usize], ap.1 + num_less_than[ap.0 as usize]);
+
+        let idx = ap.1 + num_less_than[ap.0 as usize];
+        ap = num_appearances[idx];
+
+        out_bytes[data.len() - i] = ap.0;
     };
+
+    out_bytes.into_boxed_slice()
 }
 
 #[cfg(test)]
@@ -65,9 +66,9 @@ mod test {
 
     #[test]
     fn encode_test() {
-        let input = "^BANANA|".as_bytes();
-        let expected_output = "BNN^AA|A".as_bytes();
-        let expected_idx = 6;
+        let input = "this is a test.".as_bytes();
+        let expected_output = "ssat tt hiies .".as_bytes();
+        let expected_idx = 14;
 
         let val = bwt::encode(&input);
         let idx = BigEndian::read_u32(&val[0..4]);
@@ -76,18 +77,20 @@ mod test {
                  str::from_utf8(&val[4..]).unwrap(),
                  str::from_utf8(expected_output).unwrap());
 
-        assert_eq!(&val[4..] as &[u8], expected_output);
-        assert_eq!(idx, expected_idx);
+        assert_eq!(expected_output, &val[4..] as &[u8]);
+        assert_eq!(expected_idx, idx);
     }
 
     #[test]
     fn decode_test() {
-        let input = [0, 0, 0, 6].iter().chain("BNN^AA|A".as_bytes().iter()).cloned().collect::<Vec<_>>();
-        let expected_string = "^BANANA|".as_bytes();
+        let input = [0, 0, 0, 14].iter().chain("ssat tt hiies .".as_bytes().iter()).cloned().collect::<Vec<_>>();
+        let expected_string = "this is a test.".as_bytes();
 
         let output = bwt::decode(&input);
 
-        assert_eq!(&output as &[u8], expected_string);
+        println!("returned str: {}", str::from_utf8(&output as &[u8]).unwrap());
+
+        assert_eq!(expected_string, &output as &[u8]);
     }
 
     #[test]

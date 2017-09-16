@@ -1,5 +1,4 @@
 extern crate byteorder;
-extern crate time;
 
 mod bitstream;
 mod huffman;

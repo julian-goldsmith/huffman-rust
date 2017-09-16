@@ -1,4 +1,3 @@
-use time;
 use byteorder::{BigEndian, ByteOrder};
 
 pub fn encode(data: &[u8]) -> Box<[u8]> {
@@ -24,50 +23,35 @@ pub fn encode(data: &[u8]) -> Box<[u8]> {
 }
 
 pub fn decode(in_data: &[u8]) -> Vec<u8> {
-    // NOTE: data.len() can't be larger than 65536
-    let mut idx = BigEndian::read_u32(&in_data[0..4]) as usize;
     let data = &in_data[4..];
 
     let mut num_appearances = Vec::<(u8, usize)>::with_capacity(data.len());
     let mut num_char_appearances = vec![0; 256];
     
-    let appearances_start = time::now();
     for &c in data {
         num_appearances.push((c, num_char_appearances[c as usize]));
         num_char_appearances[c as usize] += 1;
     };
-    println!("done creating appearances in {}", time::now() - appearances_start);
 
-    let lessthans_start = time::now();
     let mut sorted = data.to_vec();
     sorted.sort_unstable();
 
     let mut num_less_than = vec![0; 256];
-    let mut i = 0;
+    let mut less_than = 0;
     for c in 0..256 {
-        num_less_than[c] = i;
-
-        while i < sorted.len() && (sorted[i] as usize) <= c { 
-            i += 1; 
-        };
+        num_less_than[c] = less_than;
+        less_than += num_char_appearances[c];
     };
-    println!("done counting less thans in {}", time::now() - lessthans_start);
 
     let mut out_bytes = vec![0; data.len()];
 
-    let rebuilding_start = time::now();
-
-    let mut ap = (0, 0);
-
+    let mut idx = BigEndian::read_u32(&in_data[0..4]) as usize;
     for i in (0..data.len()).rev() {
-        ap = num_appearances[idx];
+        let ap = num_appearances[idx];
         out_bytes[i] = ap.0;
 
         idx = ap.1 + num_less_than[ap.0 as usize];
     };
-
-    out_bytes[0] = ap.0;
-    println!("done rebuilding block in {}", time::now() - rebuilding_start);
 
     out_bytes
 }

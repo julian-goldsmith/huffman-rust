@@ -1,4 +1,5 @@
 use std::iter;
+use time;
 use byteorder::{BigEndian, ByteOrder};
 
 pub fn encode(data: &[u8]) -> Box<[u8]> {
@@ -28,17 +29,20 @@ pub fn decode(in_data: &[u8]) -> Box<[u8]> {
     let data = &in_data[4..];
 
     let mut num_appearances = Vec::<(u8, usize)>::new();
+    let mut num_char_appearances = iter::repeat(0).take(256).collect::<Vec<_>>();
     let mut num_less_than = iter::repeat(0).take(256).collect::<Vec<_>>();
     
+    println!("creating appearances");
+    let appearances_start = time::now();
     for &c in data {
-        let n = num_appearances.iter().filter(|a| a.0 == c).count();
-
-        num_appearances.push((c, n));
+        num_appearances.push((c, num_char_appearances[c as usize]));
+        num_char_appearances[c as usize] += 1;
 
         for i in (c as usize + 1)..256 {
             num_less_than[i] += 1;
         };
     };
+    println!("done creating appearances in {}", time::now() - appearances_start);
 
     let mut out_bytes = Vec::<u8>::new();
     out_bytes.resize(data.len(), 0);
@@ -46,14 +50,15 @@ pub fn decode(in_data: &[u8]) -> Box<[u8]> {
     let mut ap = num_appearances[idx];
     out_bytes[data.len() - 1] = ap.0;
 
+    println!("rebuilding block");
+    let rebuilding_start = time::now();
     for i in 2..(data.len() + 1) {
-        println!("{:?}    {}    {}", ap, num_less_than[ap.0 as usize], ap.1 + num_less_than[ap.0 as usize]);
-
         let idx = ap.1 + num_less_than[ap.0 as usize];
         ap = num_appearances[idx];
 
         out_bytes[data.len() - i] = ap.0;
     };
+    println!("done rebuilding block in {}", time::now() - rebuilding_start);
 
     out_bytes.into_boxed_slice()
 }

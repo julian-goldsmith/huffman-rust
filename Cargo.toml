@@ -5,3 +5,4 @@ authors = ["Julian Goldsmith <julian@juliangoldsmith.com>"]
 
 [dependencies]
 byteorder = "1.0.0"
+time = "*"

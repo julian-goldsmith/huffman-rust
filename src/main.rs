@@ -1,4 +1,5 @@
 extern crate byteorder;
+extern crate time;
 
 mod bitstream;
 mod huffman;
@@ -41,7 +42,7 @@ fn create_file(path: &Path) -> File {
 }
 
 fn encode(mut write_file: &File, data: &Vec<u8>) {
-    for chunk in data.chunks(16 * 65536) {
+    for chunk in data.chunks(65536) {
         let bwted = bwt::encode(chunk);
 
         let lz_enc = lzw::encode(&bwted);
@@ -72,7 +73,9 @@ fn decode(mut read_file: &File) -> Vec<u8> {
 
         let lz_dec = lzw::decode(&huff_dec);
 
+        println!("unbwt");
         let unbwted = bwt::decode(&lz_dec);
+        println!("unbwt finished");
 
         bytes.extend_from_slice(&unbwted);
     };

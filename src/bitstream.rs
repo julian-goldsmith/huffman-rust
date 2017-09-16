@@ -4,6 +4,7 @@ use std::result::Result;
 use std::io;
 use std::io::Write;
 use std::io::Read;
+use std::iter;
 use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 #[derive(Clone)]
@@ -26,10 +27,8 @@ impl Bitstream {
     }
 
     fn extend(&mut self) {
-        self.data.push(0);
-        self.data.push(0);
-        self.data.push(0);
-        self.data.push(0);
+        let add_len = self.data.len() / 2;
+        self.data.extend(iter::repeat(0).take(add_len));
     }
 
     pub fn append(&mut self, val: u8) {

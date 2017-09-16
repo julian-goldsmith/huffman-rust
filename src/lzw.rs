@@ -88,7 +88,7 @@ pub fn encode(data: &[u8]) -> Vec<u32> {
     build_initial_dictionary(&mut table);
 
     let mut encoded: &[u8] = &data[0..1];
-    let mut outvalues: Vec<u32> = Vec::new();
+    let mut outvalues: Vec<u32> = Vec::with_capacity(data.len() / 2);
 
     let mut lower = 0;
     let mut upper = 1;
@@ -125,14 +125,20 @@ pub fn encode(data: &[u8]) -> Vec<u32> {
         Some(val) => outvalues.push(val),
     };
 
+    outvalues.shrink_to_fit();
+
     outvalues
 }
 
 pub fn decode(data: &Vec<u32>) -> Vec<u8> {
+    if data.len() == 0 {
+        return Vec::new();
+    };
+
     let mut entries: Vec<Vec<u8>> = (0..256).map(|i| vec![i as u8]).collect();
     let mut outbytes: Vec<u8> = Vec::new();
 
-    let mut prev_code = data[0];                                    // FIXME: can panic here
+    let mut prev_code = data[0];
     outbytes.extend(&entries[prev_code as usize]);
 
     for code in data.iter().skip(1) {

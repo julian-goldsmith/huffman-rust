@@ -2,7 +2,7 @@ extern crate byteorder;
 
 mod bitstream;
 mod huffman;
-mod lzw;
+mod rle;
 mod bwt;
 use std::error::Error;
 use std::fs::File;
@@ -44,7 +44,7 @@ fn encode(mut write_file: &File, data: &Vec<u8>) {
     for chunk in data.chunks(65536) {
         let bwted = bwt::encode(chunk);
 
-        let lz_enc = lzw::encode(&bwted);
+        let lz_enc = rle::encode(&bwted);
         
         let huff_enc = match huffman::encode(&lz_enc) {
             Ok(huff_enc) => huff_enc,
@@ -70,7 +70,7 @@ fn decode(mut read_file: &File) -> Vec<u8> {
 
         let huff_dec = huffman::decode(&hd).unwrap();
 
-        let lz_dec = lzw::decode(&huff_dec);
+        let lz_dec = rle::decode(&huff_dec);
 
         println!("unbwt");
         let unbwted = bwt::decode(&lz_dec);
@@ -81,8 +81,8 @@ fn decode(mut read_file: &File) -> Vec<u8> {
 }
 
 fn main() {
-    let data = read_file(&Path::new("../excspeed.tar.small"));
-    let outpath = Path::new("../excspeed.tar.small.zzz");
+    let data = read_file(&Path::new("../excspeed.tar"));
+    let outpath = Path::new("../excspeed.tar.zzz");
 
     let mut write_file = create_file(outpath);
     encode(&mut write_file, &data);

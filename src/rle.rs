@@ -12,7 +12,7 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
         let mut count = 0 as usize;
         let c = data[i];
 
-        while i < data.len() && c == data[i] && count < 256 {
+        while i < data.len() && c == data[i] && count < 255 {
             count += 1;
             i += 1;
         };

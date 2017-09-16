@@ -5,7 +5,7 @@ use std::io;
 use std::io::Write;
 use std::io::Read;
 use std::rc::Rc;
-use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
+use byteorder::{ReadBytesExt, WriteBytesExt};
 
 pub use self::encode::encode;
 pub use self::decode::decode;

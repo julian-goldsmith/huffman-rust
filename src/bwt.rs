@@ -1,25 +1,34 @@
 use byteorder::{BigEndian, ByteOrder};
 
-pub fn encode(data: &[u8]) -> Box<[u8]> {
+pub fn encode(data: &[u8]) -> Vec<u8> {
     let len = data.len();
-    let looped: Vec<u8> = data.iter().cloned().cycle().take(len * 2 - 1).collect();
-    let mut perms: Vec<&[u8]> = Vec::new();
 
+    let mut looped: Vec<u8> = Vec::with_capacity(len * 2);
+    looped.extend_from_slice(data);
+    looped.extend_from_slice(data);
+    looped.pop();
+
+    let mut perms: Vec<&[u8]> = Vec::with_capacity(len);
     for w in looped.windows(len) {
         perms.push(w);
     };
 
-    perms.sort();
+    perms.sort_unstable();
 
     let idx = perms.iter().position(|perm| &perm as &[u8] == data).unwrap();
-    let mut idx_buf = [0; 4];
-    BigEndian::write_u32(&mut idx_buf, idx as u32);
+    let mut buf = Vec::with_capacity(4 + len);
 
-    idx_buf.iter().
-        cloned().
-        chain(perms.iter().map(|perm| perm[len - 1])).
-        collect::<Vec<u8>>().
-        into_boxed_slice()
+    unsafe {
+        buf.set_len(4);
+    };
+
+    BigEndian::write_u32(&mut buf[0..4], idx as u32);
+
+    for i in 0..len {
+        buf.push(perms[i][len - 1]);
+    };
+
+    buf
 }
 
 pub fn decode(in_data: &[u8]) -> Vec<u8> {
@@ -33,22 +42,21 @@ pub fn decode(in_data: &[u8]) -> Vec<u8> {
         num_char_appearances[c as usize] += 1;
     };
 
-    let mut sorted = data.to_vec();
-    sorted.sort_unstable();
-
-    let mut num_less_than = vec![0; 256];
+    let mut num_less_than = Vec::with_capacity(256);
     let mut less_than = 0;
+
     for c in 0..256 {
-        num_less_than[c] = less_than;
+        num_less_than.push(less_than);
         less_than += num_char_appearances[c];
     };
 
-    let mut out_bytes = vec![0; data.len()];
-
+    let mut out_bytes = Vec::with_capacity(data.len());
     let mut idx = BigEndian::read_u32(&in_data[0..4]) as usize;
-    for i in (0..data.len()).rev() {
+
+    for _ in 0..data.len() {
         let ap = num_appearances[idx];
-        out_bytes[i] = ap.0;
+
+        out_bytes.insert(0, ap.0);
 
         idx = ap.1 + num_less_than[ap.0 as usize];
     };

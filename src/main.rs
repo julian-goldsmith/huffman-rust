@@ -4,6 +4,7 @@ mod bitstream;
 mod huffman;
 mod rle;
 mod bwt;
+mod mtf;
 use std::error::Error;
 use std::fs::File;
 use std::fs::OpenOptions;
@@ -43,8 +44,9 @@ fn create_file(path: &Path) -> File {
 fn encode(mut write_file: &File, data: &Vec<u8>) {
     for chunk in data.chunks(65536) {
         let bwted = bwt::encode(chunk);
+        let mtfed = mtf::encode(&bwted);
 
-        let lz_enc = rle::encode(&bwted);
+        let lz_enc = rle::encode(&mtfed);
         
         let huff_enc = match huffman::encode(&lz_enc) {
             Ok(huff_enc) => huff_enc,
@@ -68,21 +70,18 @@ fn decode(mut read_file: &File) -> Vec<u8> {
             Err(err) => panic!("Couldn't read file: {:?}", err),
         };
 
-        let huff_dec = huffman::decode(&hd).unwrap();
-
-        let lz_dec = rle::decode(&huff_dec);
-
-        println!("unbwt");
-        let unbwted = bwt::decode(&lz_dec);
-        println!("unbwt finished");
+        let unhuffed = huffman::decode(&hd).unwrap();
+        let unrled = rle::decode(&unhuffed);
+        let unmtfed = mtf::decode(&unrled);
+        let unbwted = bwt::decode(&unmtfed);
 
         bytes.extend_from_slice(&unbwted);
     };
 }
 
 fn main() {
-    let data = read_file(&Path::new("../excspeed.tar"));
-    let outpath = Path::new("../excspeed.tar.zzz");
+    let data = read_file(&Path::new("../excspeed.tar.small"));
+    let outpath = Path::new("../excspeed.tar.small.zzz");
 
     let mut write_file = create_file(outpath);
     encode(&mut write_file, &data);

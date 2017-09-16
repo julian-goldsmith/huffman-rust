@@ -17,25 +17,27 @@ pub enum Node {
 }
 
 pub struct HuffmanData {
-    max: u8,
-    bs: Bitstream
+    freqs: Box<[u8]>,
+    bs: Bitstream,
 }
 
 impl HuffmanData {
     fn write_freqs(&self, mut writer: &mut Write) -> io::Result<usize> {
-        match writer.write_u8(self.max) {
+        match writer.write(&self.freqs) {
             Err(err) => Err(err),
-            Ok(()) => Ok(2),
+            Ok(count) => Ok(count),
         }
     }
 
-    fn read_freqs(reader: &mut Read) -> io::Result<Option<u8>> {
-        let max = match reader.read_u8() {
+    fn read_freqs(reader: &mut Read) -> io::Result<Option<Box<[u8]>>> {
+        let mut freqs = Box::new([0; 256]);
+
+        match reader.read(&mut freqs[0..]) {
             Err(_) => return Ok(None),                // FIXME: errors other than EOF?
-            Ok(freqs_len) => freqs_len,
+            Ok(_) => (),
         };
 
-        Ok(Some(max))
+        Ok(Some(freqs))
     }
 
     pub fn write(&self, mut writer: &mut Write) -> io::Result<usize> {
@@ -53,24 +55,26 @@ impl HuffmanData {
     }
 
     pub fn read(mut reader: &mut Read) -> io::Result<Option<HuffmanData>> {
-        let max = match HuffmanData::read_freqs(&mut reader) {
-            Err(err) => return Err(err),
+        let freqs = match HuffmanData::read_freqs(&mut reader) {
+            Err(err) => panic!("read_freqs error: {:?}", err),
             Ok(Some(freqs)) => freqs,
             Ok(None) => return Ok(None),
         };
 
         let bs = match Bitstream::read(reader) {
-            Err(err) => return Err(err),
-            Ok(bs) => bs,
+            Err(err) => panic!("read bs error: {:?}", err),
+            Ok(Some(bs)) => bs,
+            Ok(None) => return Ok(None),
         };
 
-        Ok(Some(HuffmanData { max, bs }))
+        Ok(Some(HuffmanData { freqs, bs }))
     }
 }
 
-fn build_tree(max: u8) -> Rc<Node> {
-    let mut nodes: Vec<_> = (0..(max as usize + 1)).
-        map(|i| Rc::new(Node::Leaf(i as u8))).
+// input is ordered
+fn build_tree(vals: &[u8]) -> Rc<Node> {
+    let mut nodes: Vec<_> = vals.iter().
+        map(|&val| Rc::new(Node::Leaf(val))).
         collect();
 
     loop {

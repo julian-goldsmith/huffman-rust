@@ -103,9 +103,9 @@ impl Bitstream {
         Ok(bytes_out)
     }
 
-    pub fn read(reader: &mut Read) -> io::Result<Bitstream> {
+    pub fn read(reader: &mut Read) -> io::Result<Option<Bitstream>> {
         let pos = match reader.read_u32::<BigEndian>() {
-            Err(err) => return Err(err),
+            Err(err) => return Ok(None),        // FIXME: handle non-EOF
             Ok(pos) => pos as usize,
         };
 
@@ -118,7 +118,7 @@ impl Bitstream {
         };
         reader.read(&mut retval.data[0..byte_len])?;
 
-        Ok(retval)
+        Ok(Some(retval))
     }
 }
 

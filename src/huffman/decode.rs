@@ -1,7 +1,7 @@
 use huffman;
 use huffman::{HuffmanData, Node};
 
-pub fn decode(data: &HuffmanData) -> Result<Vec<u32>, String> {
+pub fn decode(data: &HuffmanData) -> Result<Vec<u8>, String> {
     let root = huffman::build_tree(data.max);
     let mut node: &Node = &root;
     let mut s = Box::new(data.bs.clone());
@@ -15,7 +15,7 @@ pub fn decode(data: &HuffmanData) -> Result<Vec<u32>, String> {
                     Some(0) => { node = &left; },
                     Some(1) => { node = &right; },
                     None => return Ok(acc),
-                    _ => return Err(String::from("Bad value from Bitstream in huffman::decode::decode_internal")),
+                    _ => return Err(String::from("Bad value from Bitstream in huffman::decode")),
                 },
         }
     }

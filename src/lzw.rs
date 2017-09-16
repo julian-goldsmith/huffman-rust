@@ -1,161 +1,60 @@
-use std::mem;
-use std::ptr;
+use std::iter;
 
-const NUM_BUCKETS: usize = 1024;
+pub fn encode(data: &[u8]) -> Vec<u8> {
+    let mut i = 0;
+    let mut out = Vec::with_capacity(data.len());
 
-struct Bucket {
-    pub keys: Vec<u64>,
-    pub values: Vec<u32>,
-}
-
-struct HashTable {
-    pub buckets: [Bucket; NUM_BUCKETS],
-    pub count: u32,
-}
-
-impl HashTable {
-    pub fn new() -> HashTable {
-        unsafe {
-            let mut table: HashTable = mem::uninitialized();
-
-            for (_, element) in table.buckets.iter_mut().enumerate() {
-                let bucket = Bucket { keys: Vec::new(), values: Vec::new() };
-
-                ptr::write(element, bucket);
-            };
-
-            table
-        }
-    }
-
-    pub fn insert(&mut self, key: &[u8], value: u32) {
-        let hash = fnv_hash(key);
-        let bi = hash as usize & (NUM_BUCKETS - 1);
-        let mut bucket = &mut self.buckets[bi];
-
-        assert_eq!(bucket.keys.len(), bucket.values.len());
-
-        bucket.keys.push(hash);
-        bucket.values.push(value);
-        self.count += 1;
-    }
-
-    pub fn get_by_hash(&self, hash: u64) -> Option<u32> {
-        let bi = hash as usize & (NUM_BUCKETS - 1);
-        let bucket = &self.buckets[bi];
-
-        for i in 0..bucket.keys.len() {
-            if bucket.keys[i] == hash {
-                return Some(bucket.values[i]);
-            }
-        }
-
-        return None;
-    }
-}
-
-#[inline(always)]
-fn fnv_hash_partial(h: u64, b: u8) -> u64 {
-    (h ^ b as u64).wrapping_mul(0x100000001b3)
-}
-
-const FNV_BASE: u64 = 0xcbf29ce484222325;
-
-fn fnv_hash(key: &[u8]) -> u64 {
-    let mut h = FNV_BASE;
-
-    for b in key {
-        h = fnv_hash_partial(h, *b);
-    };
-
-    h
-}
-
-fn build_initial_dictionary<'a>(table: &mut HashTable) {
-    let mut arr = [0 as u8; 256];
-
-    for i in 0..256 {
-        arr[i] = i as u8;
-    };
-
-    for i in 0..256 {
-        table.insert(&arr[i..i+1], i as u32);
-    };
-}
-
-pub fn encode(data: &[u8]) -> Vec<u32> {
-    let mut table = HashTable::new();
-    build_initial_dictionary(&mut table);
-
-    let mut encoded: &[u8] = &data[0..1];
-    let mut outvalues: Vec<u32> = Vec::with_capacity(data.len() / 2);
-
-    let mut lower = 0;
-    let mut upper = 1;
-
-    let mut out_val = 0;
-
-    while upper < data.len() {
-        let mut hash = FNV_BASE;
-
-        while upper < data.len() {
-            hash = fnv_hash_partial(hash, data[upper - 1]);
-
-            match table.get_by_hash(hash) {
-                None => break,
-                Some(val) => { out_val = val; },
-            };
-
-            upper += 1;
-            encoded = &data[lower..upper];
+    loop {
+        if i >= data.len() {
+            break;
         };
 
-        let count = table.count;
-        table.insert(encoded, count);
+        let mut count = 0 as usize;
+        let c = data[i];
 
-        outvalues.push(out_val);
+        while i < data.len() && c == data[i] && count < 256 {
+            count += 1;
+            i += 1;
+        };
 
-        lower = upper - 1;
-        encoded = &data[lower..upper];
+        out.push(count as u8);
+        out.push(c);
     };
 
-    let hash = fnv_hash(encoded);
-    match table.get_by_hash(hash) {
-        None => panic!("Couldn't get entry"),
-        Some(val) => outvalues.push(val),
-    };
-
-    outvalues.shrink_to_fit();
-
-    outvalues
+    out
 }
 
-pub fn decode(data: &Vec<u32>) -> Vec<u8> {
-    if data.len() == 0 {
-        return Vec::new();
-    };
+pub fn decode(data: &Vec<u8>) -> Vec<u8> {
+    assert_eq!(data.len() % 2, 0);
 
-    let mut entries: Vec<Vec<u8>> = (0..256).map(|i| vec![i as u8]).collect();
-    let mut outbytes: Vec<u8> = Vec::new();
+    data.
+        chunks(2).
+        map(|chunk| (chunk[0], chunk[1])).
+        flat_map(|(count, c)| iter::repeat(c).take(count as usize)).
+        collect()
+}
 
-    let mut prev_code = data[0];
-    outbytes.extend(&entries[prev_code as usize]);
+#[cfg(test)]
+mod test {
+    use super::*;
 
-    for code in data.iter().skip(1) {
-        let mut val = entries[prev_code as usize].clone();
+    #[test]
+    fn encode_test() {
+        let encode_data = [1, 1, 1, 1, 3, 3];
+        let expected_result = vec![4, 1, 2, 3];
 
-        val.push(
-            if *code == entries.len() as u32 {
-                entries[prev_code as usize][0]
-            } else {
-                entries[*code as usize][0]
-            });
+        let encoded = encode(&encode_data);
 
-        entries.push(val);
+        assert_eq!(&expected_result[0..], &encoded[0..]);
+    }
 
-        outbytes.extend(&entries[*code as usize]);
-        prev_code = *code;
-    };
+    #[test]
+    fn decode_test() {
+        let decode_data = vec![4, 1, 2, 3];
+        let expected_result = [1, 1, 1, 1, 3, 3];
 
-    outbytes
+        let decoded = decode(&decode_data);
+
+        assert_eq!(&expected_result[0..], &decoded[0..]);
+    }
 }

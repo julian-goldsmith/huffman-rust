@@ -12,25 +12,25 @@ pub use self::decode::decode;
 
 #[derive(Debug)]
 pub enum Node {
-    Leaf(u32),
+    Leaf(u8),
     Tree { left: Rc<Node>, right: Rc<Node> },
 }
 
 pub struct HuffmanData {
-    max: u32,
+    max: u8,
     bs: Bitstream
 }
 
 impl HuffmanData {
     fn write_freqs(&self, mut writer: &mut Write) -> io::Result<usize> {
-        match writer.write_u32::<BigEndian>(self.max) {
+        match writer.write_u8(self.max) {
             Err(err) => Err(err),
             Ok(()) => Ok(2),
         }
     }
 
-    fn read_freqs(reader: &mut Read) -> io::Result<Option<u32>> {
-        let max = match reader.read_u32::<BigEndian>() {
+    fn read_freqs(reader: &mut Read) -> io::Result<Option<u8>> {
+        let max = match reader.read_u8() {
             Err(_) => return Ok(None),                // FIXME: errors other than EOF?
             Ok(freqs_len) => freqs_len,
         };
@@ -68,9 +68,9 @@ impl HuffmanData {
     }
 }
 
-fn build_tree(max: u32) -> Rc<Node> {
-    let mut nodes: Vec<Rc<Node>> = (0..max).
-        map(|i| Rc::new(Node::Leaf(i))).
+fn build_tree(max: u8) -> Rc<Node> {
+    let mut nodes: Vec<_> = (0..(max as usize + 1)).
+        map(|i| Rc::new(Node::Leaf(i as u8))).
         collect();
 
     loop {

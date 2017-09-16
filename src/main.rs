@@ -42,7 +42,7 @@ fn create_file(path: &Path) -> File {
 }
 
 fn encode(mut write_file: &File, data: &Vec<u8>) {
-    for chunk in data.chunks(65536) {
+    for chunk in data.chunks(8 * 65536) {
         let bwted = bwt::encode(chunk);
         let mtfed = mtf::encode(&bwted);
 
@@ -80,8 +80,8 @@ fn decode(mut read_file: &File) -> Vec<u8> {
 }
 
 fn main() {
-    let data = read_file(&Path::new("../excspeed.tar.small"));
-    let outpath = Path::new("../excspeed.tar.small.zzz");
+    let data = read_file(&Path::new("../excspeed.tar"));
+    let outpath = Path::new("../excspeed.tar.zzz");
 
     let mut write_file = create_file(outpath);
     encode(&mut write_file, &data);

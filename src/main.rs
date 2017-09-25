@@ -42,7 +42,7 @@ fn create_file(path: &Path) -> File {
 }
 
 fn encode(mut write_file: &File, data: &Vec<u8>) {
-    for chunk in data.chunks(8 * 65536) {
+    for chunk in data.chunks(900000) {
         let bwted = bwt::encode(chunk);
         println!("bwted {}", bwted.len());
         let mtfed = mtf::encode(&bwted);

@@ -51,12 +51,19 @@ pub fn decode(in_data: &[u8]) -> Vec<u8> {
     };
 
     let mut out_bytes = Vec::with_capacity(data.len());
+
+    unsafe {
+        out_bytes.set_len(data.len());
+    };
+
     let mut idx = BigEndian::read_u32(&in_data[0..4]) as usize;
+    let mut ob_idx = data.len();
 
     for _ in 0..data.len() {
         let ap = num_appearances[idx];
 
-        out_bytes.insert(0, ap.0);
+        ob_idx -= 1;
+        out_bytes[ob_idx] = ap.0;
 
         idx = ap.1 + num_less_than[ap.0 as usize];
     };

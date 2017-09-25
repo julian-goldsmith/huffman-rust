@@ -44,17 +44,20 @@ fn create_file(path: &Path) -> File {
 fn encode(mut write_file: &File, data: &Vec<u8>) {
     for chunk in data.chunks(8 * 65536) {
         let bwted = bwt::encode(chunk);
+        println!("bwted {}", bwted.len());
         let mtfed = mtf::encode(&bwted);
-
-        let lz_enc = rle::encode(&mtfed);
+        println!("mtfed {}", mtfed.len());
+        let rled = rle::encode(&mtfed);
+        println!("rled {}", rled.len());
         
-        let huff_enc = match huffman::encode(&lz_enc) {
-            Ok(huff_enc) => huff_enc,
+        let huffed = match huffman::encode(&rled) {
+            Ok(huffed) => huffed,
             Err(_) => panic!("Error encoding"),
         };
+        println!("huffed {}", huffed.bs.pos.end / 8);
 
-        match huff_enc.write(&mut write_file) {
-            Ok(n) => println!("huff_enc len {} bytes", n),
+        match huffed.write(&mut write_file) {
+            Ok(n) => println!("block len {} bytes", n),
             _ => panic!("Couldn't write file"),
         };
     };

@@ -10,7 +10,7 @@ enum State<'a> {
 
 // we could keep this around between blocks.  we would need to check if the new max is higher, and
 // add new elements as needed
-fn precalc_bitstreams(freqs: &[u8]) -> Result<Vec<Option<Bitstream>>,()> {
+fn precalc_bitstreams(freqs: &[usize; 256]) -> Result<Vec<Option<Bitstream>>,()> {
     // TODO: byte-wise table rather than bit-
     // https://www.reddit.com/r/rust/comments/54jlxf/huffman_coding_implementation_in_rust/d82frgt/
     let root = huffman::build_tree(freqs);
@@ -24,14 +24,16 @@ fn precalc_bitstreams(freqs: &[u8]) -> Result<Vec<Option<Bitstream>>,()> {
 
     loop {
         match history.pop() {
-            None => return Ok(values),
+            None => { 
+                return Ok(values);
+            },
             Some(curr_state) =>
                 match curr_state {
                     State::Done => { let _ = acc.pop(); },
 
-                    State::Right(&Node::Leaf(val)) | State::Left(&Node::Leaf(val)) => values[val as usize] = Some(acc.clone()),
+                    State::Right(&Node::Leaf { val, freq: _ }) | State::Left(&Node::Leaf { val, freq: _ }) => values[val as usize] = Some(acc.clone()),
 
-                    State::Right(&Node::Tree { left: _, ref right }) => {
+                    State::Right(&Node::Tree { left: _, ref right, freq: _ }) => {
                         let next_node = right.as_ref();
 
                         acc.pop();
@@ -40,9 +42,9 @@ fn precalc_bitstreams(freqs: &[u8]) -> Result<Vec<Option<Bitstream>>,()> {
                         history.push(State::Left(&next_node));
                     },
 
-                    State::Left(node @ &Node::Tree { left: _, right: _ }) => {
+                    State::Left(node @ &Node::Tree { left: _, right: _, freq: _ }) => {
                         let left = match node {
-                            &Node::Tree { ref left, right: _ } => left,
+                            &Node::Tree { ref left, right: _, freq: _ } => left,
                             _ => unreachable!(),
                         };
                         let next_node = left;
@@ -53,19 +55,17 @@ fn precalc_bitstreams(freqs: &[u8]) -> Result<Vec<Option<Bitstream>>,()> {
                     },
                 },
         }
-    }
+    };
 }
 
-fn build_freqs(data: &[u8]) -> Vec<u8> {
-    let mut freqs = (0..256).map(|i| (i as u8, 0)).collect::<Vec<_>>();
+fn build_freqs(data: &[u8]) -> Box<[usize; 256]> {
+    let mut freqs = Box::new([0; 256]);
 
     for &c in data {
-        freqs[c as usize].1 += 1;
+        freqs[c as usize] += 1;
     };
 
-    freqs.sort_unstable_by(|a, b| b.1.cmp(&a.1).then(b.0.cmp(&a.0)));
-
-    freqs.iter().map(|freq| freq.0).collect()
+    freqs
 }
 
 pub fn encode(data: &Vec<u8>) -> Result<HuffmanData,()> {
@@ -75,5 +75,5 @@ pub fn encode(data: &Vec<u8>) -> Result<HuffmanData,()> {
         map(|c| streams[*c as usize].as_ref().unwrap()).
         fold(Bitstream::new(), 
              |mut acc, x| { acc.append_bitstream(x); acc });
-    Ok(HuffmanData { freqs: freqs.into_boxed_slice(), bs })
+    Ok(HuffmanData { freqs, bs })
 }

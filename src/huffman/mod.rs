@@ -5,36 +5,63 @@ use std::io;
 use std::io::Write;
 use std::io::Read;
 use std::rc::Rc;
-use byteorder::{ReadBytesExt, WriteBytesExt};
+use byteorder::{BigEndian, ByteOrder};
 
 pub use self::encode::encode;
 pub use self::decode::decode;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, PartialOrd)]
 pub enum Node {
-    Leaf(u8),
-    Tree { left: Rc<Node>, right: Rc<Node> },
+    Leaf { freq: usize, val: u8, },
+    Tree { freq: usize, left: Rc<Node>, right: Rc<Node>, },
+}
+
+impl Node {
+    pub fn get_freq(&self) -> usize {
+        match self {
+            &Node::Leaf { val: _, freq } => freq,
+            &Node::Tree { left: _, right: _, freq } => freq,
+        }
+    }
 }
 
 pub struct HuffmanData {
-    freqs: Box<[u8]>,
-    bs: Bitstream,
+    pub freqs: Box<[usize; 256]>,
+    pub bs: Bitstream,
 }
 
 impl HuffmanData {
     fn write_freqs(&self, mut writer: &mut Write) -> io::Result<usize> {
-        match writer.write(&self.freqs) {
+        let mut new_freqs = [0; 256];
+
+        for i in 0..256 {
+            new_freqs[i] = self.freqs[i] as u16;
+        };
+
+        let mut bytes = [0; 512];
+        BigEndian::write_u16_into(&new_freqs, &mut bytes);
+
+        match writer.write(&bytes) {
             Err(err) => Err(err),
             Ok(count) => Ok(count),
         }
     }
 
-    fn read_freqs(reader: &mut Read) -> io::Result<Option<Box<[u8]>>> {
-        let mut freqs = Box::new([0; 256]);
+    fn read_freqs(reader: &mut Read) -> io::Result<Option<Box<[usize; 256]>>> {
+        let mut bytes = [0; 512];
 
-        match reader.read(&mut freqs[0..]) {
+        match reader.read(&mut bytes) {
             Err(_) => return Ok(None),                // FIXME: errors other than EOF?
             Ok(_) => (),
+        };
+
+        let mut freqs_u16 = [0; 256];
+        BigEndian::read_u16_into(&bytes, &mut freqs_u16[0..]);
+
+        let mut freqs = Box::new([0; 256]);
+
+        for i in 0..256 {
+            freqs[i] = freqs_u16[i] as usize;
         };
 
         Ok(Some(freqs))
@@ -72,11 +99,16 @@ impl HuffmanData {
 }
 
 // input is ordered
-fn build_tree(vals: &[u8]) -> Rc<Node> {
-    let mut nodes: Vec<_> = vals.iter().
-        map(|&val| Rc::new(Node::Leaf(val))).
+fn build_tree(vals: &[usize; 256]) -> Rc<Node> {
+    // this produces an improper tree: values always end up being 8 bits
+    let mut nodes: Vec<_> = (0..256).
+        map(|i| (i as u8, vals[i])).
+        map(|val| Rc::new(Node::Leaf { val: val.0, freq: val.1 })).
         collect();
 
+    nodes.sort_unstable_by(|n1, n2| n1.partial_cmp(n2).unwrap().reverse());
+
+    // need to go down from root, find a spot for our node, then insert it
     loop {
         let lo = nodes.pop();
         let ro = nodes.pop();
@@ -84,9 +116,12 @@ fn build_tree(vals: &[u8]) -> Rc<Node> {
         match (lo, ro) {
             (Some(left), None) => return left,
             (Some(left), Some(right)) => {
-                let node = Rc::new(Node::Tree { left, right });
+                let freq = left.get_freq() + right.get_freq();
+                let node = Rc::new(Node::Tree { left, right, freq });
 
-                nodes.insert(0, node);
+                nodes.push(node);
+
+                nodes.sort_unstable_by(|n1, n2| n1.partial_cmp(n2).unwrap().reverse());
             },
             _ => panic!("Must have nodes to build_tree"),
         };

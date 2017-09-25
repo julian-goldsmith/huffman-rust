@@ -1,5 +1,3 @@
-use std::iter;
-
 pub fn encode(data: &[u8]) -> Vec<u8> {
     let mut i = 0;
     let mut out = Vec::with_capacity(data.len());

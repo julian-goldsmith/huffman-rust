@@ -9,8 +9,8 @@ use byteorder::{BigEndian, ReadBytesExt, WriteBytesExt};
 
 #[derive(Clone)]
 pub struct Bitstream {
-    pos: Range<usize>,
-    data: Vec<u8>,
+    pub pos: Range<usize>,
+    pub data: Vec<u8>,
 }
 
 impl Bitstream {
@@ -105,7 +105,7 @@ impl Bitstream {
 
     pub fn read(reader: &mut Read) -> io::Result<Option<Bitstream>> {
         let pos = match reader.read_u32::<BigEndian>() {
-            Err(err) => return Ok(None),        // FIXME: handle non-EOF
+            Err(_) => return Ok(None),        // FIXME: handle non-EOF
             Ok(pos) => pos as usize,
         };
 

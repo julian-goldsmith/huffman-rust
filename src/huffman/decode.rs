@@ -9,8 +9,8 @@ pub fn decode(data: &HuffmanData) -> Result<Vec<u8>, String> {
 
     loop {
         match node {
-            &Node::Leaf(val) => { acc.push(val); node = &root; },
-            &Node::Tree { ref left, ref right } =>
+            &Node::Leaf { val, freq: _ } => { acc.push(val); node = &root; },
+            &Node::Tree { ref left, ref right, freq: _ } =>
                 match s.pop_start() {
                     Some(0) => { node = &left; },
                     Some(1) => { node = &right; },

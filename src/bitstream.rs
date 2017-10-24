@@ -18,6 +18,7 @@ impl Bitstream {
         Bitstream { pos: (0..0), data: vec![0; 8] }
     }
 
+    #[cfg_attr(feature = "clippy", allow(inline_always))]
     #[inline(always)]
     fn get_indices(pos: usize) -> (usize, usize) {
         let idx = (pos >> 3) as usize;
@@ -116,7 +117,7 @@ impl Bitstream {
         unsafe {
             retval.data.set_len(byte_len);
         };
-        reader.read(&mut retval.data[0..byte_len])?;
+        reader.read_exact(&mut retval.data[0..byte_len])?;
 
         Ok(Some(retval))
     }

@@ -31,27 +31,27 @@ fn precalc_bitstreams(freqs: &[usize; 256]) -> Result<Vec<Option<Bitstream>>,()>
                 match curr_state {
                     State::Done => { let _ = acc.pop(); },
 
-                    State::Right(&Node::Leaf { val, freq: _ }) | State::Left(&Node::Leaf { val, freq: _ }) => values[val as usize] = Some(acc.clone()),
+                    State::Right(&Node::Leaf { val, .. }) | State::Left(&Node::Leaf { val, .. }) => values[val as usize] = Some(acc.clone()),
 
-                    State::Right(&Node::Tree { left: _, ref right, freq: _ }) => {
+                    State::Right(&Node::Tree { ref right, .. }) => {
                         let next_node = right.as_ref();
 
                         acc.pop();
                         acc.append(1);
                         history.push(State::Done);
-                        history.push(State::Left(&next_node));
+                        history.push(State::Left(next_node));
                     },
 
-                    State::Left(node @ &Node::Tree { left: _, right: _, freq: _ }) => {
-                        let left = match node {
-                            &Node::Tree { ref left, right: _, freq: _ } => left,
+                    State::Left(node @ &Node::Tree { .. }) => {
+                        let left = match *node {
+                            Node::Tree { ref left, .. } => left,
                             _ => unreachable!(),
                         };
                         let next_node = left;
 
                         acc.append(0);
                         history.push(State::Right(node));
-                        history.push(State::Left(&next_node));
+                        history.push(State::Left(next_node));
                     },
                 },
         }
@@ -68,7 +68,7 @@ fn build_freqs(data: &[u8]) -> Box<[usize; 256]> {
     freqs
 }
 
-pub fn encode(data: &Vec<u8>) -> Result<HuffmanData,()> {
+pub fn encode(data: &[u8]) -> Result<HuffmanData,()> {
     let freqs = build_freqs(data);
     let streams = precalc_bitstreams(&freqs).unwrap();
     let bs = data.iter().

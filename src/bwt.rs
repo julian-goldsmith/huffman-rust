@@ -1,4 +1,3 @@
-use time;
 use byteorder::{BigEndian, ByteOrder};
 
 pub fn encode(data: &[u8]) -> Vec<u8> {
@@ -14,7 +13,7 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     perms.sort();
 
     let idx = perms.iter().
-        position(|perm| &perm as &[u8] == data).
+        position(|perm| perm as &[u8] == data).
         unwrap();
 
     let mut buf = Vec::with_capacity(4 + len);
@@ -22,8 +21,8 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
 
     BigEndian::write_u32(&mut buf[0..4], idx as u32);
 
-    for i in 0..len {
-        buf.push(perms[i][len - 1]);
+    for perm in &perms {
+        buf.push(perm[len - 1]);
     };
 
     buf
@@ -43,9 +42,9 @@ pub fn decode(in_data: &[u8]) -> Vec<u8> {
     let mut num_less_than = Vec::with_capacity(256);
     let mut less_than = 0;
 
-    for c in 0..256 {
+    for appearances in &num_char_appearances {
         num_less_than.push(less_than);
-        less_than += num_char_appearances[c];
+        less_than += appearances;
     };
 
     let mut out_bytes = Vec::with_capacity(data.len());

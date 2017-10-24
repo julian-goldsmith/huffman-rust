@@ -18,9 +18,8 @@ pub enum Node {
 
 impl Node {
     pub fn get_freq(&self) -> usize {
-        match self {
-            &Node::Leaf { val: _, freq } => freq,
-            &Node::Tree { left: _, right: _, freq } => freq,
+        match *self {
+            Node::Leaf { freq, .. } | Node::Tree { freq, .. } => freq,
         }
     }
 }
@@ -35,9 +34,10 @@ impl HuffmanData {
         (self.bs.pos.end >> 3) as usize
     }
 
-    fn write_freqs(&self, mut writer: &mut Write) -> io::Result<usize> {
+    fn write_freqs(&self, writer: &mut Write) -> io::Result<usize> {
         let mut new_freqs = [0; 256];
 
+        #[cfg_attr(feature = "clippy", allow(needless_range_loop))]
         for i in 0..256 {
             new_freqs[i] = self.freqs[i] as u16;
         };
@@ -54,9 +54,8 @@ impl HuffmanData {
     fn read_freqs(reader: &mut Read) -> io::Result<Option<Box<[usize; 256]>>> {
         let mut bytes = [0; 512];
 
-        match reader.read(&mut bytes) {
-            Err(_) => return Ok(None),                // FIXME: errors other than EOF?
-            Ok(_) => (),
+        if reader.read(&mut bytes).is_err() {
+            return Ok(None);                // FIXME: errors other than EOF?
         };
 
         let mut freqs_u16 = [0; 256];

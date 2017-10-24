@@ -45,8 +45,8 @@ fn create_file(path: &Path) -> File {
     }
 }
 
-fn encode(mut write_file: &File, data: &Vec<u8>) {
-    for chunk in data.chunks(900000) {
+fn encode(mut write_file: &File, data: &[u8]) {
+    for chunk in data.chunks(900_000) {
         let start = time::now();
         let bwted = bwt::encode(chunk);
         println!("bwt encode in {}; {} bytes", time::now() - start, bwted.len());
@@ -62,7 +62,7 @@ fn encode(mut write_file: &File, data: &Vec<u8>) {
         let start = time::now();
         let huffed = match huffman::encode(&rled) {
             Ok(huffed) => huffed,
-            Err(_) => panic!("Error encoding"),
+            Err(()) => panic!("Error encoding"),
         };
         println!("huffman encode in {}; {} bytes", time::now() - start, 512 + huffed.byte_len());
 
@@ -104,14 +104,14 @@ fn decode(mut read_file: &File) -> Vec<u8> {
 }
 
 fn main() {
-    let data = read_file(&Path::new("../excspeed.tar.small"));
+    let data = read_file(Path::new("../excspeed.tar.small"));
     let outpath = Path::new("../excspeed.tar.small.zzz");
 
-    let mut write_file = create_file(outpath);
-    encode(&mut write_file, &data);
+    let write_file = create_file(outpath);
+    encode(&write_file, &data);
 
-    let mut read_file = open_file(outpath);
-    let lz_dec = decode(&mut read_file);
+    let read_file = open_file(outpath);
+    let lz_dec = decode(&read_file);
 
     assert_eq!(data, lz_dec);
 }

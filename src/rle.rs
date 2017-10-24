@@ -31,7 +31,7 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     out
 }
 
-pub fn decode(data: &Vec<u8>) -> Vec<u8> {
+pub fn decode(data: &[u8]) -> Vec<u8> {
     let mut i = 0;
     let mut out = Vec::with_capacity(data.len() * 2);
 

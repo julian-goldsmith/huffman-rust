@@ -1,4 +1,8 @@
+#![cfg_attr(feature="clippy", feature(plugin))]
+#![cfg_attr(feature="clippy", plugin(clippy))]
+
 extern crate byteorder;
+extern crate time;
 
 mod bitstream;
 mod huffman;
@@ -43,21 +47,27 @@ fn create_file(path: &Path) -> File {
 
 fn encode(mut write_file: &File, data: &Vec<u8>) {
     for chunk in data.chunks(900000) {
+        let start = time::now();
         let bwted = bwt::encode(chunk);
-        println!("bwted {}", bwted.len());
+        println!("bwt encode in {}; {} bytes", time::now() - start, bwted.len());
+
+        let start = time::now();
         let mtfed = mtf::encode(&bwted);
-        println!("mtfed {}", mtfed.len());
+        println!("mtf encode in {}", time::now() - start);
+
+        let start = time::now();
         let rled = rle::encode(&mtfed);
-        println!("rled {}", rled.len());
+        println!("rle encode in {}; {} bytes", time::now() - start, rled.len());
         
+        let start = time::now();
         let huffed = match huffman::encode(&rled) {
             Ok(huffed) => huffed,
             Err(_) => panic!("Error encoding"),
         };
-        println!("huffed {}", huffed.bs.pos.end / 8);
+        println!("huffman encode in {}; {} bytes", time::now() - start, 512 + huffed.byte_len());
 
         match huffed.write(&mut write_file) {
-            Ok(n) => println!("block len {} bytes", n),
+            Ok(_) => (),
             _ => panic!("Couldn't write file"),
         };
     };
@@ -73,18 +83,29 @@ fn decode(mut read_file: &File) -> Vec<u8> {
             Err(err) => panic!("Couldn't read file: {:?}", err),
         };
 
+        let start = time::now();
         let unhuffed = huffman::decode(&hd).unwrap();
+        println!("huffman decode in {}", time::now() - start);
+
+        let start = time::now();
         let unrled = rle::decode(&unhuffed);
+        println!("rle decode in {}", time::now() - start);
+
+        let start = time::now();
         let unmtfed = mtf::decode(&unrled);
+        println!("mtf decode in {}", time::now() - start);
+
+        let start = time::now();
         let unbwted = bwt::decode(&unmtfed);
+        println!("bwt decode in {}", time::now() - start);
 
         bytes.extend_from_slice(&unbwted);
     };
 }
 
 fn main() {
-    let data = read_file(&Path::new("../excspeed.tar"));
-    let outpath = Path::new("../excspeed.tar.zzz");
+    let data = read_file(&Path::new("../excspeed.tar.small"));
+    let outpath = Path::new("../excspeed.tar.small.zzz");
 
     let mut write_file = create_file(outpath);
     encode(&mut write_file, &data);

@@ -31,6 +31,10 @@ pub struct HuffmanData {
 }
 
 impl HuffmanData {
+    pub fn byte_len(&self) -> usize {
+        (self.bs.pos.end >> 3) as usize
+    }
+
     fn write_freqs(&self, mut writer: &mut Write) -> io::Result<usize> {
         let mut new_freqs = [0; 256];
 

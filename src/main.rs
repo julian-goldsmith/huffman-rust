@@ -46,25 +46,16 @@ fn create_file(path: &Path) -> File {
 }
 
 fn encode(mut write_file: &File, data: &[u8]) {
-    for chunk in data.chunks(900_000) {
-        let start = time::now();
+    //for chunk in data.chunks(900_000) {
+    for chunk in data.chunks(1000) {
         let bwted = bwt::encode(chunk);
-        println!("bwt encode in {}; {} bytes", time::now() - start, bwted.len());
-
-        let start = time::now();
         let mtfed = mtf::encode(&bwted);
-        println!("mtf encode in {}", time::now() - start);
-
-        let start = time::now();
         let rled = rle::encode(&mtfed);
-        println!("rle encode in {}; {} bytes", time::now() - start, rled.len());
         
-        let start = time::now();
         let huffed = match huffman::encode(&rled) {
             Ok(huffed) => huffed,
             Err(()) => panic!("Error encoding"),
         };
-        println!("huffman encode in {}; {} bytes", time::now() - start, 512 + huffed.byte_len());
 
         match huffed.write(&mut write_file) {
             Ok(_) => (),
@@ -83,29 +74,19 @@ fn decode(mut read_file: &File) -> Vec<u8> {
             Err(err) => panic!("Couldn't read file: {:?}", err),
         };
 
-        let start = time::now();
         let unhuffed = huffman::decode(&hd).unwrap();
-        println!("huffman decode in {}", time::now() - start);
-
-        let start = time::now();
         let unrled = rle::decode(&unhuffed);
-        println!("rle decode in {}", time::now() - start);
-
-        let start = time::now();
         let unmtfed = mtf::decode(&unrled);
-        println!("mtf decode in {}", time::now() - start);
-
-        let start = time::now();
         let unbwted = bwt::decode(&unmtfed);
-        println!("bwt decode in {}", time::now() - start);
 
+        // FIXME: would this take a lot of time?
         bytes.extend_from_slice(&unbwted);
     };
 }
 
 fn main() {
     let data = read_file(Path::new("../excspeed.tar.small"));
-    let outpath = Path::new("../excspeed.tar.small.zzz");
+    let outpath = Path::new("../excspeed.tar.zzz");
 
     let write_file = create_file(outpath);
     encode(&write_file, &data);

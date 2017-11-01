@@ -1,29 +1,95 @@
+use std::mem;
 use byteorder::{BigEndian, ByteOrder};
+use time;
+
+fn quicksort(perms: &mut [&[u8]], lo: usize, hi: usize) {
+    let p = partition(perms, lo, hi);
+
+    if p - 1 > lo {
+        quicksort(perms, lo, p - 1);
+    };
+
+    if p + 1 < hi {
+        quicksort(perms, p + 1, hi);
+    };
+}
+
+fn partition(perms: &mut [&[u8]], mut lo: usize, mut hi: usize) -> usize {
+    let pivot = perms[(lo + hi) / 2];
+
+    let inlo = lo;
+    let inhi = hi;
+
+    while lo < hi {
+        while lo < hi && perms[lo] <= pivot {
+            lo += 1;
+        };
+
+        while lo < hi && perms[hi] > pivot {
+            hi -= 1;
+        };
+
+        if lo < hi && perms[lo] > perms[hi] {
+            perms.swap(lo, hi);
+        };
+    };
+
+    println!("part {:?}", &perms[inlo..inhi]);
+
+    lo
+}
 
 pub fn encode(data: &[u8]) -> Vec<u8> {
     let len = data.len();
 
+    let start = time::now();
     let mut looped: Vec<u8> = Vec::with_capacity(len * 2);
     looped.extend_from_slice(data);
     looped.extend_from_slice(data);
     looped.pop();
+    println!("gen looped in {}", time::now() - start);
 
-    let mut perms = looped.windows(len).collect::<Vec<_>>();
+    let start = time::now();
+    let mut perms = looped.
+        windows(len).
+        collect::<Vec<&[u8]>>();
+    println!("gen perms in {}", time::now() - start);
 
-    perms.sort();
+    let start = time::now();
 
+    let mut test_sorted = perms.clone();
+    test_sorted.sort();
+
+    // FIXME: this line takes the most time
+    //perms.sort();
+    quicksort(&mut perms, 0, data.len() - 1);
+    println!("sort perms in {}", time::now() - start);
+
+    for i in 0..data.len() {
+        println!("perm {:?}", &perms[i][0..10]);
+        println!("test {:?}", &test_sorted[i][0..10]);
+    };
+
+    assert!(test_sorted == perms);
+
+    let start = time::now();
     let idx = perms.iter().
-        position(|perm| perm as &[u8] == data).
+        position(|perm| perm as &[u8] == data).     // FIXME: binary_search?
         unwrap();
+    println!("idx is {}", idx);
 
+    let start = time::now();
     let mut buf = Vec::with_capacity(4 + len);
     buf.append(&mut vec![0, 0, 0, 0]);
+    println!("gen buf in {}", time::now() - start);
 
+    let start = time::now();
     BigEndian::write_u32(&mut buf[0..4], idx as u32);
 
     for perm in &perms {
         buf.push(perm[len - 1]);
     };
+    println!("write in {}", time::now() - start);
 
     buf
 }
@@ -112,5 +178,78 @@ mod test {
         let output = bwt::decode(&encoded);
 
         assert_eq!(input, &output as &[u8]);
+    }
+
+    #[test]
+    fn sort_test() {
+        let mut base_data = [
+            [1, 2, 3],
+            [1, 1, 1],
+            [2, 1, 2],
+            [2, 3, 1],
+        ];
+
+        let mut data = [
+            &base_data[2][..],
+            &base_data[0][..],
+            &base_data[2][..],
+            &base_data[1][..],
+            &base_data[3][..],
+            &base_data[2][..],
+            &base_data[2][..],
+            &base_data[3][..],
+            &base_data[3][..],
+            &base_data[2][..],
+            &base_data[3][..],
+        ];
+
+        let hi = data.len() - 1;
+        bwt::quicksort(&mut data[..], 0, hi);
+
+        panic!("{:?}", data);
+    }
+
+    #[test]
+    fn sort2_test() {
+        let mut base_data = [
+            [1],
+            [2],
+            [3],
+            [4],
+            [5],
+            [6],
+            [7],
+            [8],
+            [9],
+            [10],
+            [11],
+            [12],
+            [13],
+            [14],
+            [15],
+        ];
+
+        let mut data = [
+            &base_data[14][..],
+            &base_data[13][..],
+            &base_data[12][..],
+            &base_data[11][..],
+            &base_data[10][..],
+            &base_data[9][..],
+            &base_data[8][..],
+            &base_data[7][..],
+            &base_data[6][..],
+            &base_data[5][..],
+            &base_data[4][..],
+            &base_data[3][..],
+            &base_data[2][..],
+            &base_data[1][..],
+            &base_data[0][..],
+        ];
+
+        let hi = data.len() - 1;
+        bwt::quicksort(&mut data[..], 0, hi);
+
+        panic!("{:?}", data);
     }
 }

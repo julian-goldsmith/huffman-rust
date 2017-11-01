@@ -53,7 +53,7 @@ pub fn decode(data: &[u8]) -> Vec<u8> {
                 out.push(c);
             };
         } else {
-            let run_count = data[i];
+            let run_count = data[i] as usize;
             i += 1;
 
             for _ in 0..(4 + run_count) {

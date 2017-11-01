@@ -2,41 +2,49 @@ use std::mem;
 use byteorder::{BigEndian, ByteOrder};
 use time;
 
-fn quicksort(perms: &mut [&[u8]], lo: usize, hi: usize) {
-    let p = partition(perms, lo, hi);
-
-    if p - 1 > lo {
-        quicksort(perms, lo, p - 1);
+fn quicksort(mut perms: &mut [&[u8]]) {
+    if perms.len() <= 1 {
+        return;
     };
 
-    if p + 1 < hi {
-        quicksort(perms, p + 1, hi);
-    };
-}
+    let pivot = perms[perms.len() / 2];
 
-fn partition(perms: &mut [&[u8]], mut lo: usize, mut hi: usize) -> usize {
-    let pivot = perms[(lo + hi) / 2];
+    let mut left = 0;
+    let mut right = perms.len() - 1;
 
-    let inlo = lo;
-    let inhi = hi;
-
-    while lo < hi {
-        while lo < hi && perms[lo] <= pivot {
-            lo += 1;
+    while left <= right {
+        while perms[left] < pivot {
+            left += 1;
         };
 
-        while lo < hi && perms[hi] > pivot {
-            hi -= 1;
+        while perms[right] > pivot {
+            right -= 1;
         };
 
-        if lo < hi && perms[lo] > perms[hi] {
-            perms.swap(lo, hi);
+        if left <= right {
+            perms.swap(left, right);
+
+            left += 1;
+
+            if right > 0 {
+                right -= 1;
+            };
         };
     };
 
-    println!("part {:?}", &perms[inlo..inhi]);
+    let p = left;
 
-    lo
+    if p > 1 {
+        println!("quicksort a {:?}", &perms);
+
+        quicksort(&mut perms[..p]);
+    };
+
+    if p + 1 < perms.len() {
+        println!("quicksort b {:?}", &perms);
+
+        quicksort(&mut perms[(p + 1)..]);
+    };
 }
 
 pub fn encode(data: &[u8]) -> Vec<u8> {
@@ -62,7 +70,7 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
 
     // FIXME: this line takes the most time
     //perms.sort();
-    quicksort(&mut perms, 0, data.len() - 1);
+    quicksort(&mut perms);
     println!("sort perms in {}", time::now() - start);
 
     for i in 0..data.len() {
@@ -203,8 +211,7 @@ mod test {
             &base_data[3][..],
         ];
 
-        let hi = data.len() - 1;
-        bwt::quicksort(&mut data[..], 0, hi);
+        bwt::quicksort(&mut data[..]);
 
         panic!("{:?}", data);
     }
@@ -247,8 +254,7 @@ mod test {
             &base_data[0][..],
         ];
 
-        let hi = data.len() - 1;
-        bwt::quicksort(&mut data[..], 0, hi);
+        bwt::quicksort(&mut data[..]);
 
         panic!("{:?}", data);
     }

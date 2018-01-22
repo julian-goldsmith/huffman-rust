@@ -47,7 +47,7 @@ fn create_file(path: &Path) -> File {
 
 fn encode(mut write_file: &File, data: &[u8]) {
     //for chunk in data.chunks(900_000) {
-    for chunk in data.chunks(100) {
+    for chunk in data.chunks(1000000) {
         let bwted = bwt::encode(chunk);
         let mtfed = mtf::encode(&bwted);
         let rled = rle::encode(&mtfed);
@@ -86,7 +86,7 @@ fn decode(mut read_file: &File) -> Vec<u8> {
 
 fn main() {
     let data = read_file(Path::new("../excspeed.tar.small"));
-    let outpath = Path::new("../excspeed.tar.zzz");
+    let outpath = Path::new("../excspeed.tar.small.zzz");
 
     let write_file = create_file(outpath);
     encode(&write_file, &data);

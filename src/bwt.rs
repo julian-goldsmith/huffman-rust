@@ -4,14 +4,14 @@ use byteorder::{BigEndian, ByteOrder};
 use time;
 
 fn quicksort(perms: &mut [&[u8]]) {
-    if perms.len() <= 1 {
+    if perms.len() < 2 {
         return;
     };
 
     let pivot = partition(perms);
 
     quicksort(&mut perms[..pivot]);
-    quicksort(&mut perms[pivot..]);
+    quicksort(&mut perms[(pivot + 1)..]);
 }
 
 fn partition(perms: &mut [&[u8]]) -> usize {
@@ -50,13 +50,15 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
         collect::<Vec<&[u8]>>();
     println!("gen perms in {}", time::now() - start);
 
-    let start = time::now();
-
     let mut test_sorted = perms.clone();
+    let start = time::now();
     test_sorted.sort();
+    println!("test sort perms in {}", time::now() - start);
 
     // FIXME: this line takes the most time
     //perms.sort();
+
+    let start = time::now();
     quicksort(&mut perms);
     println!("sort perms in {}", time::now() - start);
 

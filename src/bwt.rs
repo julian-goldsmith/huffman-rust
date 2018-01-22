@@ -1,50 +1,37 @@
 use std::mem;
+use std::cmp::{PartialOrd, Ordering};
 use byteorder::{BigEndian, ByteOrder};
 use time;
 
-fn quicksort(mut perms: &mut [&[u8]]) {
+fn quicksort(perms: &mut [&[u8]]) {
     if perms.len() <= 1 {
         return;
     };
 
-    let pivot = perms[perms.len() / 2];
+    let pivot = partition(perms);
 
-    let mut left = 0;
-    let mut right = perms.len() - 1;
+    quicksort(&mut perms[..pivot]);
+    quicksort(&mut perms[pivot..]);
+}
 
-    while left <= right {
-        while perms[left] < pivot {
-            left += 1;
-        };
+fn partition(perms: &mut [&[u8]]) -> usize {
+    let hi = perms.len() - 1;
+    let pivot = perms[hi];
 
-        while perms[right] > pivot {
-            right -= 1;
-        };
-
-        if left <= right {
-            perms.swap(left, right);
-
-            left += 1;
-
-            if right > 0 {
-                right -= 1;
-            };
-        };
+    let mut i = 0;
+    
+    for j in 0..hi {
+        if perms[j] < pivot {
+            perms.swap(i, j);
+            i += 1;
+        }
     };
 
-    let p = left;
-
-    if p > 1 {
-        println!("quicksort a {:?}", &perms);
-
-        quicksort(&mut perms[..p]);
+    if perms[hi] < perms[i] {
+        perms.swap(i, hi);
     };
 
-    if p + 1 < perms.len() {
-        println!("quicksort b {:?}", &perms);
-
-        quicksort(&mut perms[(p + 1)..]);
-    };
+    i
 }
 
 pub fn encode(data: &[u8]) -> Vec<u8> {
@@ -72,11 +59,6 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     //perms.sort();
     quicksort(&mut perms);
     println!("sort perms in {}", time::now() - start);
-
-    for i in 0..data.len() {
-        println!("perm {:?}", &perms[i][0..10]);
-        println!("test {:?}", &test_sorted[i][0..10]);
-    };
 
     assert!(test_sorted == perms);
 
@@ -211,9 +193,13 @@ mod test {
             &base_data[3][..],
         ];
 
-        bwt::quicksort(&mut data[..]);
+        let mut sorted = data.clone();
+        bwt::quicksort(&mut sorted[..]);
 
-        panic!("{:?}", data);
+        let mut refsorted = data.clone();
+        refsorted.sort();
+
+        assert_eq!(refsorted, sorted);
     }
 
     #[test]
@@ -236,7 +222,7 @@ mod test {
             [15],
         ];
 
-        let mut data = [
+        let data = [
             &base_data[14][..],
             &base_data[13][..],
             &base_data[12][..],
@@ -254,8 +240,12 @@ mod test {
             &base_data[0][..],
         ];
 
-        bwt::quicksort(&mut data[..]);
+        let mut sorted = data.clone();
+        bwt::quicksort(&mut sorted[..]);
 
-        panic!("{:?}", data);
+        let mut refsorted = data.clone();
+        refsorted.sort();
+
+        assert_eq!(refsorted, sorted);
     }
 }

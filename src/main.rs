@@ -47,7 +47,7 @@ fn create_file(path: &Path) -> File {
 
 fn encode(mut write_file: &File, data: &[u8]) {
     //for chunk in data.chunks(900_000) {
-    for chunk in data.chunks(10000) {
+    for chunk in data.chunks(1000) {
         let bwted = bwt::encode(chunk);
         let mtfed = mtf::encode(&bwted);
         let rled = rle::encode(&mtfed);

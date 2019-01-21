@@ -3,60 +3,50 @@ use std::cmp::{PartialOrd, Ordering};
 use byteorder::{BigEndian, ByteOrder};
 use time;
 
-fn quicksort(perms: &mut [&[u8]]) {
-    if perms.len() < 2 {
-        return;
-    };
-
-    let pivot = partition(perms);
-
-    quicksort(&mut perms[..pivot]);
-    quicksort(&mut perms[(pivot + 1)..]);
-}
-
-fn partition(perms: &mut [&[u8]]) -> usize {
-    let hi = perms.len() - 1;
-    let pivot = perms[hi];
-
+fn partition_radix(perms: &mut [&[u8]], idx: usize) {
+    let hi = perms.len();
     let mut i = 0;
-    
-    for j in 0..hi {
-        if perms[j] < pivot {
-            perms.swap(i, j);
-            i += 1;
-        }
-    };
+    let mut pivot = 0;
+    let mut next_pivot = 255;
 
-    if perms[hi] < perms[i] {
-        perms.swap(i, hi);
-    };
+    while i < hi {
+        for j in i..hi {
+            if perms[j][idx] == pivot as u8 {
+                perms.swap(i, j);
+                i += 1;
+            } else if perms[j][idx] > pivot as u8 && perms[j][idx] < next_pivot as u8 {
+                next_pivot = perms[j][idx];
+            };
+        };
 
-    i
+        // TODO: Recurse in here, since we can get our partition boundaries.
+
+        pivot = next_pivot;
+        next_pivot = 255;
+    };
 }
 
 fn sort_digit(perms: &mut [&[u8]], idx: usize) {
-    if idx >= perms[0].len() || perms.len() <= 1 {
+    if idx >= perms[0].len() || perms.len() < 2 {
         return;
     };
 
-    perms.sort_unstable_by(|a, b| a[idx].cmp(&b[idx]));
+    //perms.sort_unstable_by(|a, b| a[idx].cmp(&b[idx]));
+    partition_radix(perms, idx);
 
     let mut i = 0;
-    let mut j = 1;
+    let mut len = perms.len();
 
-    while j < perms.len() {
+    for j in 0..len {
         if perms[i][idx] != perms[j][idx] {
             let group = &mut perms[i..j];
             sort_digit(group, idx + 1);
             i = j;
         };
-
-        j += 1;
     };
 
-    let group = &mut perms[i..j];
+    let group = &mut perms[i..len];
     sort_digit(group, idx + 1);
-    i = j;
 }
 
 fn radix_sort(perms: &mut [&[u8]]) {

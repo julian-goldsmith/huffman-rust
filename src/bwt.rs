@@ -3,14 +3,20 @@ use std::cmp::{PartialOrd, Ordering};
 use byteorder::{BigEndian, ByteOrder};
 use time;
 
-fn partition_radix(perms: &mut [&[u8]], idx: usize) {
-    let hi = perms.len();
+fn sort_digit(perms: &mut [&[u8]], idx: usize) {
+    let len = perms.len();
     let mut i = 0;
     let mut pivot = 0;
-    let mut next_pivot = 255;
 
-    while i < hi {
-        for j in i..hi {
+    if len < 2 || idx >= perms[0].len() {
+        return;
+    };
+
+    while i < len {
+        let mut next_pivot = 255;
+        let prev_i = i;
+
+        for j in i..len {
             if perms[j][idx] == pivot as u8 {
                 perms.swap(i, j);
                 i += 1;
@@ -19,41 +25,13 @@ fn partition_radix(perms: &mut [&[u8]], idx: usize) {
             };
         };
 
-        // TODO: Recurse in here, since we can get our partition boundaries.
+        sort_digit(&mut perms[prev_i..i], idx + 1);
 
         pivot = next_pivot;
-        next_pivot = 255;
     };
-}
-
-fn sort_digit(perms: &mut [&[u8]], idx: usize) {
-    if idx >= perms[0].len() || perms.len() < 2 {
-        return;
-    };
-
-    //perms.sort_unstable_by(|a, b| a[idx].cmp(&b[idx]));
-    partition_radix(perms, idx);
-
-    let mut i = 0;
-    let mut len = perms.len();
-
-    for j in 0..len {
-        if perms[i][idx] != perms[j][idx] {
-            let group = &mut perms[i..j];
-            sort_digit(group, idx + 1);
-            i = j;
-        };
-    };
-
-    let group = &mut perms[i..len];
-    sort_digit(group, idx + 1);
 }
 
 fn radix_sort(perms: &mut [&[u8]]) {
-    if perms.len() < 2 {
-        return;
-    };
-
     sort_digit(perms, 0);
 }
 

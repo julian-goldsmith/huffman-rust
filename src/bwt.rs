@@ -34,6 +34,39 @@ fn partition(perms: &mut [&[u8]]) -> usize {
     i
 }
 
+fn sort_digit(perms: &mut [&[u8]], idx: usize) {
+    if idx >= perms[0].len() || perms.len() <= 1 {
+        return;
+    };
+
+    perms.sort_unstable_by(|a, b| a[idx].cmp(&b[idx]));
+
+    let mut i = 0;
+    let mut j = 1;
+
+    while j < perms.len() {
+        if perms[i][idx] != perms[j][idx] {
+            let group = &mut perms[i..j];
+            sort_digit(group, idx + 1);
+            i = j;
+        };
+
+        j += 1;
+    };
+
+    let group = &mut perms[i..j];
+    sort_digit(group, idx + 1);
+    i = j;
+}
+
+fn radix_sort(perms: &mut [&[u8]]) {
+    if perms.len() < 2 {
+        return;
+    };
+
+    sort_digit(perms, 0);
+}
+
 pub fn encode(data: &[u8]) -> Vec<u8> {
     let len = data.len();
 
@@ -59,10 +92,14 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     //perms.sort();
 
     let start = time::now();
-    quicksort(&mut perms);
-    println!("sort perms in {}", time::now() - start);
+    radix_sort(&mut perms);
+    println!("radix sort perms in {}", time::now() - start);
 
-    assert!(test_sorted == perms);
+    if test_sorted != perms {
+        println!("correct: {:?}", test_sorted);
+        println!("actual: {:?}", perms);
+        panic!("sort failed");
+    };
 
     let start = time::now();
     let idx = perms.iter().

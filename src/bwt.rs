@@ -8,38 +8,39 @@ fn radix_sort(perms: &mut [&[u8]]) {
 
     let digits = perms[0].len();
     let mut queue = Vec::new();
-    queue.push((0..perms.len(), 0));
+    queue.push((0..perms.len(), 0, 0));
 
     loop {
-        let (range, idx) = match queue.pop() { None => return, Some(item) => item, };
+        let (range, idx, pivot) = match queue.pop() { None => return, Some(item) => item, };
         let mut i = range.start;
-        let mut pivot = 0;
+        let mut next_pivot = 255;
 
-        while i < range.end {
-            let mut next_pivot = 255;
-            let prev_i = i;
+        // Skip over partially-sorted data.
+        while i < range.end && perms[i][idx] == pivot {
+            i += 1;
+        };
 
-            // Skip over partially-sorted data.
-            while i < range.end && perms[i][idx] == pivot {
+        // Sort our current range of data.
+        for j in i..range.end {
+            let curr = perms[j][idx];
+
+            if curr == pivot {
+                perms.swap(i, j);
                 i += 1;
+            } else if curr < next_pivot {
+                // If curr != pivot, it must be > pivot.
+                next_pivot = curr;
             };
+        };
 
-            for j in i..range.end {
-                let curr = perms[j][idx];
+        // Enqueue the next range of data.
+        if i < range.end {
+            queue.push((i..range.end, idx, next_pivot));
+        };
 
-                if curr == pivot {
-                    perms.swap(i, j);
-                    i += 1;
-                } else if curr > pivot && curr < next_pivot {
-                    next_pivot = curr;
-                };
-            };
-
-            if i - prev_i > 1 && idx + 1 < digits {
-                queue.push((prev_i..i, idx + 1));
-            };
-
-            pivot = next_pivot;
+        // Enqueue the next digit for our current range.
+        if i > range.start + 1 && idx + 1 < digits {
+            queue.push((range.start..i, idx + 1, 0));
         };
     };
 }
@@ -54,6 +55,7 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     looped.pop();
     println!("gen looped in {}", time::now() - start);
 
+    // TODO: Look at indices into looped, instead of actually generating the permutations.
     let start = time::now();
     let mut perms = looped.
         windows(len).

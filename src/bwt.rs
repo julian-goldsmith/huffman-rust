@@ -1,28 +1,30 @@
-use std::mem;
-use std::cmp::{PartialOrd, Ordering};
-use std::ops::Range;
 use byteorder::{BigEndian, ByteOrder};
 use time;
 
 fn radix_sort(perms: &mut [&[u8]]) {
-    let len = perms.len();
+    if perms.len() < 2 {
+        return;
+    };
+
+    let digits = perms[0].len();
     let mut queue = Vec::new();
-    queue.push((0..len, 0));
+    queue.push((0..perms.len(), 0));
 
     loop {
         let (range, idx) = match queue.pop() { None => return, Some(item) => item, };
         let mut i = range.start;
         let mut pivot = 0;
 
-        if range.len() < 2 || idx >= perms[0].len() {
-            continue;
-        };
-
         while i < range.end {
             let mut next_pivot = 255;
             let prev_i = i;
 
-            for j in prev_i..range.end {
+            // Skip over partially-sorted data.
+            while i < range.end && perms[i][idx] == pivot {
+                i += 1;
+            };
+
+            for j in i..range.end {
                 let curr = perms[j][idx];
 
                 if curr == pivot {
@@ -33,7 +35,9 @@ fn radix_sort(perms: &mut [&[u8]]) {
                 };
             };
 
-            queue.push((prev_i..i, idx + 1));
+            if i - prev_i > 1 && idx + 1 < digits {
+                queue.push((prev_i..i, idx + 1));
+            };
 
             pivot = next_pivot;
         };

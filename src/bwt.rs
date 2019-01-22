@@ -71,7 +71,7 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     println!("radix sort perms in {}", time::now() - start);
 
     let actualperms = perms.iter().
-        map(|perm| &looped[*perm..(perm + len)]).
+        map(|&perm| &looped[perm..(perm + len)]).
         collect::<Vec<&[u8]>>();
     if test_sorted != actualperms {
         println!("correct: {:?}", test_sorted);
@@ -88,8 +88,8 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
 
     BigEndian::write_u32(&mut buf[0..4], idx as u32);
 
-    for perm in &perms {
-        buf.push(looped[*perm + len - 1]);
+    for &perm in &perms {
+        buf.push(looped[perm + len - 1]);
     };
 
     buf

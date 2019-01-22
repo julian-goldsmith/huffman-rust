@@ -1,10 +1,16 @@
 use byteorder::{BigEndian, ByteOrder};
 use time;
 
-fn radix_sort(perms: &mut [usize], looped: &[u8], digits: usize) {
-    if perms.len() != digits {
-        panic!("perms has wrong length {}, should be {}", perms.len(), digits);
-    };
+fn get_wrapped(data: &[u8], idx: usize) -> u8 {
+    if idx < data.len() {
+        data[idx]
+    } else {
+        data[idx - data.len()]
+    }
+}
+
+fn radix_sort(perms: &mut [usize], data: &[u8]) {
+    let digits = data.len();
 
     let mut queue = Vec::new();
     queue.push((0..digits, 0, 0));
@@ -15,13 +21,13 @@ fn radix_sort(perms: &mut [usize], looped: &[u8], digits: usize) {
         let mut next_pivot = 255;
 
         // Skip over partially-sorted data.
-        while i < range.end && looped[perms[i] + idx] == pivot {
+        while i < range.end && get_wrapped(data, perms[i] + idx) == pivot {
             i += 1;
         };
 
         // Sort our current range of data.
         for j in i..range.end {
-            let curr = looped[perms[j] + idx];
+            let curr = get_wrapped(data, perms[j] + idx);
 
             if curr == pivot {
                 perms.swap(i, j);
@@ -47,13 +53,12 @@ fn radix_sort(perms: &mut [usize], looped: &[u8], digits: usize) {
 pub fn encode(data: &[u8]) -> Vec<u8> {
     let len = data.len();
 
-    // TODO: Loop indices, instead of duplicating our data.
+    let start = time::now();
     let mut looped: Vec<u8> = Vec::with_capacity(len * 2);
     looped.extend_from_slice(data);
     looped.extend_from_slice(data);
     looped.pop();
 
-    let start = time::now();
     let mut test_sorted = looped.
         windows(len).
         collect::<Vec<&[u8]>>();
@@ -62,7 +67,7 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
 
     let start = time::now();
     let mut perms = (0..len).collect::<Vec<usize>>();
-    radix_sort(&mut perms, &looped, len);
+    radix_sort(&mut perms, data);
     println!("radix sort perms in {}", time::now() - start);
 
     let actualperms = perms.iter().
@@ -75,7 +80,7 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     };
 
     let idx = perms.iter().
-        position(|&perm| &looped[perm..(perm + len)] == data).     // FIXME: binary_search?
+        position(|&perm| perm == 0).
         unwrap();
 
     let mut buf = Vec::with_capacity(4 + len);

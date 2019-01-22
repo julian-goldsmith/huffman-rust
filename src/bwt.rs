@@ -1,38 +1,42 @@
 use std::mem;
 use std::cmp::{PartialOrd, Ordering};
+use std::ops::Range;
 use byteorder::{BigEndian, ByteOrder};
 use time;
 
-fn sort_digit(perms: &mut [&[u8]], idx: usize) {
-    let len = perms.len();
-    let mut i = 0;
+fn sort_digit(perms: &mut [&[u8]], item: (Range<usize>, usize)) {
+    let (range, idx) = item;
+    let mut i = range.start;
     let mut pivot = 0;
 
-    if len < 2 || idx >= perms[0].len() {
+    if range.len() < 2 || idx >= perms[0].len() {
         return;
     };
 
-    while i < len {
+    while i < range.end {
         let mut next_pivot = 255;
         let prev_i = i;
 
-        for j in i..len {
-            if perms[j][idx] == pivot as u8 {
+        for j in prev_i..range.end {
+            let curr = perms[j][idx];
+
+            if curr == pivot as u8 {
                 perms.swap(i, j);
                 i += 1;
-            } else if perms[j][idx] > pivot as u8 && perms[j][idx] < next_pivot as u8 {
-                next_pivot = perms[j][idx];
+            } else if curr > pivot as u8 && curr < next_pivot as u8 {
+                next_pivot = curr;
             };
         };
 
-        sort_digit(&mut perms[prev_i..i], idx + 1);
+        sort_digit(perms, (prev_i..i, idx + 1));
 
         pivot = next_pivot;
     };
 }
 
 fn radix_sort(perms: &mut [&[u8]]) {
-    sort_digit(perms, 0);
+    let len = perms.len();
+    sort_digit(perms, (0..len, 0));
 }
 
 pub fn encode(data: &[u8]) -> Vec<u8> {

@@ -1,14 +1,13 @@
 use byteorder::{BigEndian, ByteOrder};
 use time;
 
-fn radix_sort(perms: &mut [&[u8]]) {
-    if perms.len() < 2 {
-        return;
+fn radix_sort(perms: &mut [usize], looped: &[u8], digits: usize) {
+    if perms.len() != digits {
+        panic!("perms has wrong length {}, should be {}", perms.len(), digits);
     };
 
-    let digits = perms[0].len();
     let mut queue = Vec::new();
-    queue.push((0..perms.len(), 0, 0));
+    queue.push((0..digits, 0, 0));
 
     loop {
         let (range, idx, pivot) = match queue.pop() { None => return, Some(item) => item, };
@@ -16,13 +15,13 @@ fn radix_sort(perms: &mut [&[u8]]) {
         let mut next_pivot = 255;
 
         // Skip over partially-sorted data.
-        while i < range.end && perms[i][idx] == pivot {
+        while i < range.end && looped[perms[i] + idx] == pivot {
             i += 1;
         };
 
         // Sort our current range of data.
         for j in i..range.end {
-            let curr = perms[j][idx];
+            let curr = looped[perms[j] + idx];
 
             if curr == pivot {
                 perms.swap(i, j);
@@ -48,56 +47,45 @@ fn radix_sort(perms: &mut [&[u8]]) {
 pub fn encode(data: &[u8]) -> Vec<u8> {
     let len = data.len();
 
-    let start = time::now();
+    // TODO: Loop indices, instead of duplicating our data.
     let mut looped: Vec<u8> = Vec::with_capacity(len * 2);
     looped.extend_from_slice(data);
     looped.extend_from_slice(data);
     looped.pop();
-    println!("gen looped in {}", time::now() - start);
 
-    // TODO: Look at indices into looped, instead of actually generating the permutations.
     let start = time::now();
-    let mut perms = looped.
+    let mut test_sorted = looped.
         windows(len).
         collect::<Vec<&[u8]>>();
-    println!("gen perms in {}", time::now() - start);
-
-    let mut test_sorted = perms.clone();
-    let start = time::now();
     test_sorted.sort();
     println!("test sort perms in {}", time::now() - start);
 
-    // FIXME: this line takes the most time
-    //perms.sort();
-
     let start = time::now();
-    radix_sort(&mut perms);
+    let mut perms = (0..len).collect::<Vec<usize>>();
+    radix_sort(&mut perms, &looped, len);
     println!("radix sort perms in {}", time::now() - start);
 
-    if test_sorted != perms {
+    let actualperms = perms.iter().
+        map(|perm| &looped[*perm..(perm + len)]).
+        collect::<Vec<&[u8]>>();
+    if test_sorted != actualperms {
         println!("correct: {:?}", test_sorted);
-        println!("actual: {:?}", perms);
+        println!("actual: {:?}", actualperms);
         panic!("sort failed");
     };
 
-    let start = time::now();
     let idx = perms.iter().
-        position(|perm| perm as &[u8] == data).     // FIXME: binary_search?
+        position(|&perm| &looped[perm..(perm + len)] == data).     // FIXME: binary_search?
         unwrap();
-    println!("idx is {}", idx);
 
-    let start = time::now();
     let mut buf = Vec::with_capacity(4 + len);
     buf.append(&mut vec![0, 0, 0, 0]);
-    println!("gen buf in {}", time::now() - start);
 
-    let start = time::now();
     BigEndian::write_u32(&mut buf[0..4], idx as u32);
 
     for perm in &perms {
-        buf.push(perm[len - 1]);
+        buf.push(looped[*perm + len - 1]);
     };
-    println!("write in {}", time::now() - start);
 
     buf
 }

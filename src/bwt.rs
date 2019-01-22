@@ -4,39 +4,40 @@ use std::ops::Range;
 use byteorder::{BigEndian, ByteOrder};
 use time;
 
-fn sort_digit(perms: &mut [&[u8]], item: (Range<usize>, usize)) {
-    let (range, idx) = item;
-    let mut i = range.start;
-    let mut pivot = 0;
-
-    if range.len() < 2 || idx >= perms[0].len() {
-        return;
-    };
-
-    while i < range.end {
-        let mut next_pivot = 255;
-        let prev_i = i;
-
-        for j in prev_i..range.end {
-            let curr = perms[j][idx];
-
-            if curr == pivot as u8 {
-                perms.swap(i, j);
-                i += 1;
-            } else if curr > pivot as u8 && curr < next_pivot as u8 {
-                next_pivot = curr;
-            };
-        };
-
-        sort_digit(perms, (prev_i..i, idx + 1));
-
-        pivot = next_pivot;
-    };
-}
-
 fn radix_sort(perms: &mut [&[u8]]) {
     let len = perms.len();
-    sort_digit(perms, (0..len, 0));
+    let mut queue = Vec::new();
+    queue.push((0..len, 0));
+
+    loop {
+        let (range, idx) = match queue.pop() { None => return, Some(item) => item, };
+        let mut i = range.start;
+        let mut pivot = 0;
+
+        if range.len() < 2 || idx >= perms[0].len() {
+            continue;
+        };
+
+        while i < range.end {
+            let mut next_pivot = 255;
+            let prev_i = i;
+
+            for j in prev_i..range.end {
+                let curr = perms[j][idx];
+
+                if curr == pivot {
+                    perms.swap(i, j);
+                    i += 1;
+                } else if curr > pivot && curr < next_pivot {
+                    next_pivot = curr;
+                };
+            };
+
+            queue.push((prev_i..i, idx + 1));
+
+            pivot = next_pivot;
+        };
+    };
 }
 
 pub fn encode(data: &[u8]) -> Vec<u8> {

@@ -1,7 +1,9 @@
+use std::ops::Range;
 use byteorder::{BigEndian, ByteOrder};
 use time;
 
-fn get_wrapped(data: &[u8], idx: usize) -> u8 {
+fn get_wrapped(data: &[u8], perms: &[usize], pi: usize, idx: usize) -> u8 {
+    let idx = perms[pi] + idx;
     if idx < data.len() {
         data[idx]
     } else {
@@ -9,45 +11,48 @@ fn get_wrapped(data: &[u8], idx: usize) -> u8 {
     }
 }
 
-fn radix_sort(perms: &mut [usize], data: &[u8]) {
-    let digits = data.len();
+fn get_partitions(data: &[u8], perms: &[usize], idx: usize) -> Vec<Range<usize>> {
+    let mut pstart = 0;
+    let mut prev = data[0];
+    let mut partitions = Vec::new();
 
-    let mut queue = Vec::new();
-    queue.push((0..digits, 0, 0));
-
-    loop {
-        let (range, idx, pivot) = match queue.pop() { None => return, Some(item) => item, };
-        let mut i = range.start;
-        let mut next_pivot = 255;
-
-        // Skip over partially-sorted data.
-        while i < range.end && get_wrapped(data, perms[i] + idx) == pivot {
-            i += 1;
-        };
-
-        // Sort our current range of data.
-        for j in i..range.end {
-            let curr = get_wrapped(data, perms[j] + idx);
-
-            if curr == pivot {
-                perms.swap(i, j);
-                i += 1;
-            } else if curr < next_pivot {
-                // If curr != pivot, it must be > pivot.
-                next_pivot = curr;
-            };
-        };
-
-        // Enqueue the next range of data.
-        if i < range.end {
-            queue.push((i..range.end, idx, next_pivot));
-        };
-
-        // Enqueue the next digit for our current range.
-        if i > range.start + 1 && idx + 1 < digits {
-            queue.push((range.start..i, idx + 1, 0));
+    for pi in 0..perms.len() {
+        let val = get_wrapped(data, perms, pi, idx);
+        if val != prev {
+            partitions.push(pstart..pi);
+            pstart = pi;
+            prev = val;
         };
     };
+    
+    partitions.push(pstart..perms.len());
+
+    partitions
+}
+
+fn radix_sort(data: &[u8], perms: &mut [usize], digit: usize) {
+    if digit >= data.len() {
+        return;
+    };
+
+    let start = time::now();
+    perms.sort_unstable_by_key(|&perm| {
+        let idx = perm + digit;
+        if idx < data.len() {
+            data[idx]
+        } else {
+            data[idx - data.len()]
+        }
+    });
+    println!("radix unstable sort perms in {}", time::now() - start);
+
+    let start = time::now();
+    let part_ranges = get_partitions(data, perms, digit);
+    for p_range in part_ranges {
+        let partition = &mut perms[p_range];
+        radix_sort(data, partition, digit + 1);
+    };
+    println!("radix recurse in {}", time::now() - start);
 }
 
 pub fn encode(data: &[u8]) -> Vec<u8> {
@@ -67,7 +72,7 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
 
     let start = time::now();
     let mut perms = (0..len).collect::<Vec<usize>>();
-    radix_sort(&mut perms, data);
+    radix_sort(data, &mut perms, 0);
     println!("radix sort perms in {}", time::now() - start);
 
     let actualperms = perms.iter().

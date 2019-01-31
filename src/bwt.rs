@@ -14,16 +14,16 @@ fn get_perm_wrapped(data: &[u8], perms: &[usize], pi: usize, digit: usize) -> u8
     get_wrapped(data, perms[pi] + digit)
 }
 
-fn get_partitions(data: &[u8], perms: &[usize], digit: usize, base: usize) -> Vec<Range<usize>> {
-    let mut pstart = 0;
+fn get_partitions(data: &[u8], perms: &[usize], p_range: &Range<usize>, digit: usize) -> Vec<Range<usize>> {
+    let mut pstart = p_range.start;
     let mut prev = get_perm_wrapped(data, perms, 0, digit);
     let mut partitions = Vec::new();
 
-    for pi in 0..perms.len() {
+    for pi in p_range.clone() {
         let val = get_perm_wrapped(data, perms, pi, digit);
         if val != prev {
             if pi - pstart > 1 {
-                partitions.push((base + pstart)..(base + pi));
+                partitions.push(pstart..pi);
             };
 
             pstart = pi;
@@ -31,11 +31,16 @@ fn get_partitions(data: &[u8], perms: &[usize], digit: usize, base: usize) -> Ve
         };
     };
     
-    if perms.len() - pstart > 1 {
-        partitions.push((base + pstart)..(base + perms.len()));
+    if p_range.end - pstart > 1 {
+        partitions.push(pstart..p_range.end);
     };
 
     partitions
+}
+
+fn sort_partition(data: &[u8], perms: &mut [usize], p_range: Range<usize>, digit: usize) {
+    let partition = &mut perms[p_range];
+    partition.sort_unstable_by_key(|&perm| get_wrapped(data, perm + digit));
 }
 
 fn radix_sort(data: &[u8], perms: &mut [usize]) {
@@ -44,10 +49,9 @@ fn radix_sort(data: &[u8], perms: &mut [usize]) {
 
     for digit in 0..data.len() {
         for p_range in part_ranges {
-            let partition = &mut perms[&p_range];
-            partition.sort_unstable_by_key(|&perm| get_wrapped(data, perm + digit));
+            sort_partition(data, perms, p_range.clone(), digit);
 
-            let mut sub_ranges = get_partitions(data, partition, digit, p_range.start);
+            let mut sub_ranges = get_partitions(data, perms, &p_range, digit);
             next_part_ranges.append(&mut sub_ranges);
         };
 
@@ -60,10 +64,9 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     let len = data.len();
 
     let start = time::now();
-    let mut looped: Vec<u8> = Vec::with_capacity(len * 2);
+    let mut looped: Vec<u8> = Vec::with_capacity(len + len - 1);
     looped.extend_from_slice(data);
-    looped.extend_from_slice(data);
-    looped.pop();
+    looped.extend_from_slice(&data[..len-1]);
 
     let mut test_sorted = looped.
         windows(len).

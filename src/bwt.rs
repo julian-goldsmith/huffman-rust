@@ -2,8 +2,7 @@ use std::ops::Range;
 use byteorder::{BigEndian, ByteOrder};
 use time;
 
-fn get_wrapped(data: &[u8], perms: &[usize], pi: usize, idx: usize) -> u8 {
-    let idx = perms[pi] + idx;
+fn get_wrapped(data: &[u8], idx: usize) -> u8 {
     if idx < data.len() {
         data[idx]
     } else {
@@ -11,48 +10,50 @@ fn get_wrapped(data: &[u8], perms: &[usize], pi: usize, idx: usize) -> u8 {
     }
 }
 
-fn get_partitions(data: &[u8], perms: &[usize], idx: usize) -> Vec<Range<usize>> {
+fn get_perm_wrapped(data: &[u8], perms: &[usize], pi: usize, digit: usize) -> u8 {
+    get_wrapped(data, perms[pi] + digit)
+}
+
+fn get_partitions(data: &[u8], perms: &[usize], digit: usize, base: usize) -> Vec<Range<usize>> {
     let mut pstart = 0;
-    let mut prev = data[0];
+    let mut prev = get_perm_wrapped(data, perms, 0, digit);
     let mut partitions = Vec::new();
 
     for pi in 0..perms.len() {
-        let val = get_wrapped(data, perms, pi, idx);
+        let val = get_perm_wrapped(data, perms, pi, digit);
         if val != prev {
-            partitions.push(pstart..pi);
+            if pi - pstart > 1 {
+                partitions.push((base + pstart)..(base + pi));
+            };
+
             pstart = pi;
             prev = val;
         };
     };
     
-    partitions.push(pstart..perms.len());
+    if perms.len() - pstart > 1 {
+        partitions.push((base + pstart)..(base + perms.len()));
+    };
 
     partitions
 }
 
-fn radix_sort(data: &[u8], perms: &mut [usize], digit: usize) {
-    if digit >= data.len() {
-        return;
-    };
+fn radix_sort(data: &[u8], perms: &mut [usize]) {
+    let mut part_ranges = vec![0..perms.len()];
+    let mut next_part_ranges = Vec::new();
 
-    let start = time::now();
-    perms.sort_unstable_by_key(|&perm| {
-        let idx = perm + digit;
-        if idx < data.len() {
-            data[idx]
-        } else {
-            data[idx - data.len()]
-        }
-    });
-    println!("radix unstable sort perms in {}", time::now() - start);
+    for digit in 0..data.len() {
+        for p_range in part_ranges {
+            let partition = &mut perms[&p_range];
+            partition.sort_unstable_by_key(|&perm| get_wrapped(data, perm + digit));
 
-    let start = time::now();
-    let part_ranges = get_partitions(data, perms, digit);
-    for p_range in part_ranges {
-        let partition = &mut perms[p_range];
-        radix_sort(data, partition, digit + 1);
+            let mut sub_ranges = get_partitions(data, partition, digit, p_range.start);
+            next_part_ranges.append(&mut sub_ranges);
+        };
+
+        part_ranges = next_part_ranges;
+        next_part_ranges = Vec::new();
     };
-    println!("radix recurse in {}", time::now() - start);
 }
 
 pub fn encode(data: &[u8]) -> Vec<u8> {
@@ -72,7 +73,7 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
 
     let start = time::now();
     let mut perms = (0..len).collect::<Vec<usize>>();
-    radix_sort(data, &mut perms, 0);
+    radix_sort(data, &mut perms);
     println!("radix sort perms in {}", time::now() - start);
 
     let actualperms = perms.iter().

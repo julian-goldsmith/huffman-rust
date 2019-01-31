@@ -10,24 +10,28 @@ fn get_wrapped(data: &[u8], idx: usize) -> u8 {
     }
 }
 
-fn get_partitions(data: &[u8], perms: &[usize], p_range: &Range<usize>, digit: usize, partitions: &mut Vec<Range<usize>>) {
-    let mut pstart = p_range.start;
-    let mut prev = get_wrapped(data, perms[0] + digit);
+fn get_partitions(data: &[u8], perms: &[usize], p_range: &Range<usize>,
+                  digit: usize, partitions: &mut Vec<Range<usize>>) {
+    let mut curr_range = p_range.start..p_range.start;
+    let mut prev = 0;
 
-    for pi in p_range.clone() {
-        let val = get_wrapped(data, perms[pi] + digit);
+    while curr_range.end < p_range.end {
+        let val = get_wrapped(data, perms[curr_range.end] + digit);
+
         if val != prev {
-            if pi - pstart > 1 {
-                partitions.push(pstart..pi);
+            if curr_range.len() > 1 {
+                partitions.push(curr_range.clone());
             };
 
-            pstart = pi;
-            prev = val;
+            curr_range.start = curr_range.end;
         };
+
+        prev = val;
+        curr_range.end += 1;
     };
     
-    if p_range.end - pstart > 1 {
-        partitions.push(pstart..p_range.end);
+    if curr_range.len() > 1 {
+        partitions.push(curr_range);
     };
 }
 

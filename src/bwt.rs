@@ -2,21 +2,31 @@ use std::ops::Range;
 use byteorder::{BigEndian, ByteOrder};
 use time;
 
-fn get_wrapped(data: &[u8], idx: usize) -> u8 {
-    if idx < data.len() {
-        data[idx]
-    } else {
-        data[idx - data.len()]
+struct Perm<'a> {
+    data: &'a [u8],
+    offset: usize,
+}
+
+impl<'a> Perm<'a> {
+    fn get(&self, digit: usize) -> u8 {
+        let idx = self.offset + digit;
+
+        if idx < self.data.len() {
+            self.data[idx]
+        } else {
+            self.data[idx - self.data.len()]
+        }
     }
 }
 
-fn get_partitions(data: &[u8], perms: &[usize], p_range: &Range<usize>,
+fn get_partitions(perms: &[Perm], p_range: &Range<usize>,
                   digit: usize, partitions: &mut Vec<Range<usize>>) {
     let mut curr_range = p_range.start..p_range.start;
     let mut prev = 0;
 
     while curr_range.end < p_range.end {
-        let val = get_wrapped(data, perms[curr_range.end] + digit);
+        let perm = &perms[curr_range.end];
+        let val = perm.get(digit);
 
         if val != prev {
             if curr_range.len() > 1 {
@@ -26,8 +36,8 @@ fn get_partitions(data: &[u8], perms: &[usize], p_range: &Range<usize>,
             curr_range.start = curr_range.end;
         };
 
-        prev = val;
         curr_range.end += 1;
+        prev = val;
     };
     
     if curr_range.len() > 1 {
@@ -35,16 +45,16 @@ fn get_partitions(data: &[u8], perms: &[usize], p_range: &Range<usize>,
     };
 }
 
-fn radix_sort(data: &[u8], perms: &mut [usize]) {
+fn radix_sort(perms: &mut [Perm]) {
     let mut part_ranges = vec![0..perms.len()];
     let mut next_part_ranges = Vec::new();
 
-    for digit in 0..data.len() {
+    for digit in 0..perms.len() {
         for p_range in &part_ranges {
             perms[p_range.clone()].
-                sort_unstable_by_key(|&perm| get_wrapped(data, perm + digit));
+                sort_unstable_by_key(|perm| perm.get(digit));
 
-            get_partitions(data, perms, &p_range, digit, &mut next_part_ranges);
+            get_partitions(perms, &p_range, digit, &mut next_part_ranges);
         };
 
         let mut temp = part_ranges;
@@ -69,12 +79,14 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     println!("test sort perms in {}", time::now() - start);
 
     let start = time::now();
-    let mut perms = (0..len).collect::<Vec<usize>>();
-    radix_sort(data, &mut perms);
+    let mut perms = (0..len).
+        map(|offset| Perm { data: &data, offset: offset, }).
+        collect::<Vec<Perm>>();
+    radix_sort(&mut perms);
     println!("radix sort perms in {}", time::now() - start);
 
     let actualperms = perms.iter().
-        map(|&perm| &looped[perm..(perm + len)]).
+        map(|perm| &looped[perm.offset..(perm.offset + len)]).
         collect::<Vec<&[u8]>>();
     if test_sorted != actualperms {
         println!("correct: {:?}", test_sorted);
@@ -83,7 +95,7 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     };
 
     let idx = perms.iter().
-        position(|&perm| perm == 0).
+        position(|perm| perm.offset == 0).
         unwrap();
 
     let mut buf = Vec::with_capacity(4 + len);
@@ -91,8 +103,8 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
 
     BigEndian::write_u32(&mut buf[0..4], idx as u32);
 
-    for &perm in &perms {
-        buf.push(looped[perm + len - 1]);
+    for perm in &perms {
+        buf.push(perm.get(len - 1));
     };
 
     buf

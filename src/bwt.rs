@@ -21,29 +21,29 @@ impl<'a> Index<usize> for Perm<'a> {
     }
 }
 
+fn find_partition(perms: &[Perm], search_range: &Range<usize>, digit: usize, target: u8) -> Range<usize> {
+    let mut curr_range = search_range.clone();
+
+    while curr_range.len() > 1 && target != perms[curr_range.end - 1][digit] {
+        curr_range.end -= 1;
+    };
+
+    curr_range
+}
+
 fn get_partitions(perms: &[Perm], p_range: &Range<usize>,
                   digit: usize, partitions: &mut Vec<Range<usize>>) {
-    let mut curr_range = p_range.start..p_range.start;
-    let mut prev = 0;
+    let mut curr_range = p_range.clone();
 
-    while curr_range.end < p_range.end {
-        let perm = &perms[curr_range.end];
-        let val = perm[digit];
+    while curr_range.start < p_range.end {
+        let val = perms[curr_range.start][digit];
 
-        if val != prev {
-            if curr_range.len() > 1 {
-                partitions.push(curr_range.clone());
-            };
+        let new_range = find_partition(perms, &curr_range, digit, val);
+        curr_range = new_range.end..p_range.end;
 
-            curr_range.start = curr_range.end;
+        if new_range.len() > 1 {
+            partitions.push(new_range);
         };
-
-        curr_range.end += 1;
-        prev = val;
-    };
-    
-    if curr_range.len() > 1 {
-        partitions.push(curr_range);
     };
 }
 
@@ -57,6 +57,10 @@ fn radix_sort(perms: &mut [Perm]) {
                 sort_unstable_by_key(|perm| perm[digit]);
 
             get_partitions(perms, &p_range, digit, &mut next_part_ranges);
+        };
+
+        if next_part_ranges.len() == 0 {
+            break;
         };
 
         let mut temp = part_ranges;

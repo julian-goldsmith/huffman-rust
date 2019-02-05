@@ -23,7 +23,7 @@ impl<'a> Index<usize> for Perm<'a> {
 
 fn find_partition_end(perms: &[Perm], mut search_range: Range<usize>, digit: usize, target: u8) -> usize {
     while search_range.len() > 1 && target != perms[search_range.end - 1][digit] {
-        let midpoint = search_range.start + 1;//search_range.len() / 2;
+        let midpoint = search_range.start + search_range.len() / 2;
 
         if target < perms[midpoint][digit] {
             search_range.end = midpoint;
@@ -35,20 +35,18 @@ fn find_partition_end(perms: &[Perm], mut search_range: Range<usize>, digit: usi
     search_range.end
 }
 
-fn get_partitions(perms: &[Perm], p_range: &Range<usize>,
+fn get_partitions(perms: &[Perm], mut search_range: Range<usize>,
                   digit: usize, partitions: &mut Vec<Range<usize>>) {
-    let mut curr_range = p_range.clone();
+    while search_range.len() > 1 {
+        let val = perms[search_range.start][digit];
+        let part_end = find_partition_end(perms, search_range.clone(), digit, val);
+        let part_range = search_range.start..part_end;
 
-    while curr_range.start < p_range.end {
-        let val = perms[curr_range.start][digit];
-
-        let new_end = find_partition_end(perms, curr_range.clone(), digit, val);
-
-        if curr_range.start - new_end > 1 {
-            partitions.push(curr_range.start..new_end);
+        if part_range.len() > 1 {
+            partitions.push(part_range);
         };
 
-        curr_range = new_end..p_range.end;
+        search_range.start = part_end;
     };
 }
 
@@ -57,15 +55,12 @@ fn radix_sort(perms: &mut [Perm]) {
     let mut next_part_ranges = Vec::new();
 
     for digit in 0..perms.len() {
-        for p_range in &part_ranges {
-            perms[p_range.clone()].
-                sort_unstable_by_key(|perm| perm[digit]);
-
-            get_partitions(perms, &p_range, digit, &mut next_part_ranges);
+        for p_range in part_ranges.iter().cloned() {
+            perms[p_range].sort_unstable_by_key(|perm| perm[digit]);
         };
 
-        if next_part_ranges.len() == 0 {
-            break;
+        for p_range in part_ranges.iter().cloned() {
+            get_partitions(perms, p_range, digit, &mut next_part_ranges);
         };
 
         let mut temp = part_ranges;
@@ -100,8 +95,8 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
         map(|perm| &looped[perm.offset..(perm.offset + len)]).
         collect::<Vec<&[u8]>>();
     if test_sorted != actualperms {
-        println!("correct: {:?}", test_sorted);
-        println!("actual: {:?}", actualperms);
+        //println!("correct: {:?}", test_sorted);
+        //println!("actual: {:?}", actualperms);
         panic!("sort failed");
     };
 

@@ -21,14 +21,18 @@ impl<'a> Index<usize> for Perm<'a> {
     }
 }
 
-fn find_partition(perms: &[Perm], search_range: &Range<usize>, digit: usize, target: u8) -> Range<usize> {
-    let mut curr_range = search_range.clone();
+fn find_partition_end(perms: &[Perm], mut search_range: Range<usize>, digit: usize, target: u8) -> usize {
+    while search_range.len() > 1 && target != perms[search_range.end - 1][digit] {
+        let midpoint = search_range.start + search_range.len() / 2;
 
-    while curr_range.len() > 1 && target != perms[curr_range.end - 1][digit] {
-        curr_range.end -= 1;
+        if target < perms[midpoint][digit] {
+            search_range.end = midpoint;
+        } else {
+            search_range.start = midpoint;
+        };
     };
 
-    curr_range
+    search_range.end
 }
 
 fn get_partitions(perms: &[Perm], p_range: &Range<usize>,
@@ -38,12 +42,13 @@ fn get_partitions(perms: &[Perm], p_range: &Range<usize>,
     while curr_range.start < p_range.end {
         let val = perms[curr_range.start][digit];
 
-        let new_range = find_partition(perms, &curr_range, digit, val);
-        curr_range = new_range.end..p_range.end;
+        let new_end = find_partition_end(perms, curr_range.clone(), digit, val);
 
-        if new_range.len() > 1 {
-            partitions.push(new_range);
+        if curr_range.start - new_end > 1 {
+            partitions.push(curr_range.start..new_end);
         };
+
+        curr_range = new_end..p_range.end;
     };
 }
 

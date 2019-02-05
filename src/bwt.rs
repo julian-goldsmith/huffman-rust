@@ -1,4 +1,4 @@
-use std::ops::Range;
+use std::ops::{Index, Range};
 use byteorder::{BigEndian, ByteOrder};
 use time;
 
@@ -7,14 +7,16 @@ struct Perm<'a> {
     offset: usize,
 }
 
-impl<'a> Perm<'a> {
-    fn get(&self, digit: usize) -> u8 {
+impl<'a> Index<usize> for Perm<'a> {
+    type Output = u8;
+
+    fn index(&self, digit: usize) -> &u8 {
         let idx = self.offset + digit;
 
         if idx < self.data.len() {
-            self.data[idx]
+            &self.data[idx]
         } else {
-            self.data[idx - self.data.len()]
+            &self.data[idx - self.data.len()]
         }
     }
 }
@@ -26,7 +28,7 @@ fn get_partitions(perms: &[Perm], p_range: &Range<usize>,
 
     while curr_range.end < p_range.end {
         let perm = &perms[curr_range.end];
-        let val = perm.get(digit);
+        let val = perm[digit];
 
         if val != prev {
             if curr_range.len() > 1 {
@@ -52,7 +54,7 @@ fn radix_sort(perms: &mut [Perm]) {
     for digit in 0..perms.len() {
         for p_range in &part_ranges {
             perms[p_range.clone()].
-                sort_unstable_by_key(|perm| perm.get(digit));
+                sort_unstable_by_key(|perm| perm[digit]);
 
             get_partitions(perms, &p_range, digit, &mut next_part_ranges);
         };
@@ -104,7 +106,7 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     BigEndian::write_u32(&mut buf[0..4], idx as u32);
 
     for perm in &perms {
-        buf.push(perm.get(len - 1));
+        buf.push(perm[len - 1]);
     };
 
     buf

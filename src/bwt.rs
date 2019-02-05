@@ -23,7 +23,7 @@ impl<'a> Index<usize> for Perm<'a> {
 
 fn find_partition_end(perms: &[Perm], mut search_range: Range<usize>, digit: usize, target: u8) -> usize {
     while search_range.len() > 1 && target != perms[search_range.end - 1][digit] {
-        let midpoint = search_range.start + search_range.len() / 2;
+        let midpoint = search_range.start + 1;//search_range.len() / 2;
 
         if target < perms[midpoint][digit] {
             search_range.end = midpoint;

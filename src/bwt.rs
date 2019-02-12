@@ -7,13 +7,11 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     looped.extend_from_slice(data);
     looped.extend_from_slice(&data[0..len-1]);
 
-    let mut perms = looped.
-        windows(len).
-        collect::<Vec<&[u8]>>();
-    perms.sort_unstable();
+    let mut perms = (0..len).collect::<Vec<usize>>();
+    perms.sort_unstable_by_key(|&perm| &looped[perm..(perm + len)]);
 
     let idx = perms.iter().
-        position(|perm| perm == &data).
+        position(|&perm| perm == 0).
         unwrap();
 
     let mut buf = Vec::with_capacity(4 + len);
@@ -22,7 +20,7 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     BigEndian::write_u32(&mut buf[0..4], idx as u32);
 
     for perm in &perms {
-        buf.push(perm[len - 1]);
+        buf.push(looped[perm + len - 1]);
     };
 
     buf

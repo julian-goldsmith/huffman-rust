@@ -46,21 +46,34 @@ fn create_file(path: &Path) -> File {
 }
 
 fn encode(mut write_file: &File, data: &[u8]) {
-    //for chunk in data.chunks(900_000) {
-    for chunk in data.chunks(100_000) {
+    for chunk in data.chunks(900_000) {
+        let chunk_start = time::now();
+
+        let start = time::now();
         let bwted = bwt::encode(chunk);
+        println!("bwt chunk in {}", time::now() - start);
+
+        let start = time::now();
         let mtfed = mtf::encode(&bwted);
+        println!("mtf chunk in {}", time::now() - start);
+
+        let start = time::now();
         let rled = rle::encode(&mtfed);
+        println!("rle chunk in {}", time::now() - start);
         
+        let start = time::now();
         let huffed = match huffman::encode(&rled) {
             Ok(huffed) => huffed,
             Err(()) => panic!("Error encoding"),
         };
+        println!("huff chunk in {}", time::now() - start);
 
         match huffed.write(&mut write_file) {
             Ok(_) => (),
             _ => panic!("Couldn't write file"),
         };
+
+        println!("encoded chunk in {}", time::now() - chunk_start);
     };
 }
 
@@ -85,14 +98,14 @@ fn decode(mut read_file: &File) -> Vec<u8> {
 }
 
 fn main() {
-    let data = read_file(Path::new("../excspeed.tar.small"));
-    let outpath = Path::new("../excspeed.tar.small.zzz");
+    let data = read_file(Path::new("../excspeed.tar"));
+    let outpath = Path::new("../excspeed.tar.zzz");
 
     let write_file = create_file(outpath);
     encode(&write_file, &data);
 
     let read_file = open_file(outpath);
-    let lz_dec = decode(&read_file);
+    let dec = decode(&read_file);
 
-    assert_eq!(data, lz_dec);
+    assert_eq!(data, dec);
 }

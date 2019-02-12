@@ -1,107 +1,19 @@
-use std::ops::{Index, Range};
 use byteorder::{BigEndian, ByteOrder};
-use time;
-
-struct Perm<'a> {
-    data: &'a [u8],
-    offset: usize,
-}
-
-impl<'a> Index<usize> for Perm<'a> {
-    type Output = u8;
-
-    fn index(&self, digit: usize) -> &u8 {
-        let idx = self.offset + digit;
-
-        if idx < self.data.len() {
-            &self.data[idx]
-        } else {
-            &self.data[idx - self.data.len()]
-        }
-    }
-}
-
-fn find_partition_end(perms: &[Perm], mut search_range: Range<usize>, digit: usize, target: u8) -> usize {
-    while search_range.len() > 1 && target != perms[search_range.end - 1][digit] {
-        let midpoint = search_range.start + search_range.len() / 2;
-
-        if target < perms[midpoint][digit] {
-            search_range.end = midpoint;
-        } else {
-            search_range.start = midpoint;
-        };
-    };
-
-    search_range.end
-}
-
-fn get_partitions(perms: &[Perm], mut search_range: Range<usize>,
-                  digit: usize, partitions: &mut Vec<Range<usize>>) {
-    while search_range.len() > 1 {
-        let val = perms[search_range.start][digit];
-        let part_end = find_partition_end(perms, search_range.clone(), digit, val);
-        let part_range = search_range.start..part_end;
-
-        if part_range.len() > 1 {
-            partitions.push(part_range);
-        };
-
-        search_range.start = part_end;
-    };
-}
-
-fn radix_sort(perms: &mut [Perm]) {
-    let mut part_ranges = vec![0..perms.len()];
-    let mut next_part_ranges = Vec::new();
-
-    for digit in 0..perms.len() {
-        for p_range in part_ranges.iter().cloned() {
-            perms[p_range].sort_unstable_by_key(|perm| perm[digit]);
-        };
-
-        for p_range in part_ranges.iter().cloned() {
-            get_partitions(perms, p_range, digit, &mut next_part_ranges);
-        };
-
-        let mut temp = part_ranges;
-        part_ranges = next_part_ranges;
-        next_part_ranges = temp;
-        next_part_ranges.clear();
-    };
-}
 
 pub fn encode(data: &[u8]) -> Vec<u8> {
     let len = data.len();
 
-    let start = time::now();
     let mut looped: Vec<u8> = Vec::with_capacity(len + len - 1);
     looped.extend_from_slice(data);
-    looped.extend_from_slice(&data[..len-1]);
+    looped.extend_from_slice(&data[0..len-1]);
 
-    let mut test_sorted = looped.
+    let mut perms = looped.
         windows(len).
         collect::<Vec<&[u8]>>();
-    test_sorted.sort();
-    println!("test sort perms in {}", time::now() - start);
-
-    let start = time::now();
-    let mut perms = (0..len).
-        map(|offset| Perm { data: &data, offset: offset, }).
-        collect::<Vec<Perm>>();
-    radix_sort(&mut perms);
-    println!("radix sort perms in {}", time::now() - start);
-
-    let actualperms = perms.iter().
-        map(|perm| &looped[perm.offset..(perm.offset + len)]).
-        collect::<Vec<&[u8]>>();
-    if test_sorted != actualperms {
-        //println!("correct: {:?}", test_sorted);
-        //println!("actual: {:?}", actualperms);
-        panic!("sort failed");
-    };
+    perms.sort_unstable();
 
     let idx = perms.iter().
-        position(|perm| perm.offset == 0).
+        position(|perm| perm == &data).
         unwrap();
 
     let mut buf = Vec::with_capacity(4 + len);

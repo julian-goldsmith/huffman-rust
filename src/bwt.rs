@@ -29,35 +29,29 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
 
 pub fn decode(buf: &[u8]) -> Vec<u8> {
     let data = &buf[4..];
-
-    let mut num_appearances = Vec::<(u8, usize)>::with_capacity(data.len());
-    let mut num_char_appearances = vec![0; 256];
-    
-    for &c in data {
-        num_appearances.push((c, num_char_appearances[c as usize]));
-        num_char_appearances[c as usize] += 1;
-    };
-
-    let mut num_less_than = Vec::with_capacity(256);
-    let mut less_than = 0;
-
-    for appearances in &num_char_appearances {
-        num_less_than.push(less_than);
-        less_than += appearances;
-    };
-
-    let mut out_bytes = vec![0; data.len()];
-
+    let len = data.len();
     let mut idx = BigEndian::read_u32(&buf[0..4]) as usize;
-    let mut ob_idx = data.len();
+    let mut out_bytes = vec![0; len];
 
-    for _ in 0..data.len() {
+    let mut num_appearances = Vec::with_capacity(len);
+    let mut num_char_appearances = [0; 256];
+    let mut num_less_than = [0; 256];
+
+    for &c in data {
+        let ci = c as usize;
+        num_appearances.push((c, num_char_appearances[ci]));
+        num_char_appearances[ci] += 1;
+    };
+
+    for i in 0..255 {
+        num_less_than[i + 1] = num_less_than[i] + num_char_appearances[i];
+    };
+
+    for ob_idx in (0..len).rev() {
         let ap = num_appearances[idx];
 
-        ob_idx -= 1;
-        out_bytes[ob_idx] = ap.0;
-
         idx = ap.1 + num_less_than[ap.0 as usize];
+        out_bytes[ob_idx] = ap.0;
     };
 
     out_bytes

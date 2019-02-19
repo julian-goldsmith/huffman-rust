@@ -1,26 +1,35 @@
 use byteorder::{BigEndian, ByteOrder};
 
+fn build_suffix_array<'a>(len: usize, data_looped: &'a [u8]) -> Vec<(usize, &'a [u8])> {
+    let mut suffixes = (0..len).
+        map(|i| (i, &data_looped[i..(i + len)])).
+        collect::<Vec<(usize, &'a [u8])>>();
+    suffixes.sort_unstable_by_key(|s| s.1);
+
+    suffixes
+}
+
 pub fn encode(data: &[u8]) -> Vec<u8> {
     let len = data.len();
 
-    let mut looped: Vec<u8> = Vec::with_capacity(len + len - 1);
-    looped.extend_from_slice(data);
-    looped.extend_from_slice(&data[0..len-1]);
+    let mut data_looped = Vec::with_capacity(len + len - 1);
+    data_looped.extend(data);
+    data_looped.extend(&data[..(len-1)]);
 
-    let mut perms = (0..len).collect::<Vec<usize>>();
-    perms.sort_unstable_by_key(|&perm| &looped[perm..(perm + len)]);
-
-    let idx = perms.iter().
-        position(|&perm| perm == 0).
-        unwrap();
+    let suffixes = build_suffix_array(len, &data_looped);
 
     let mut buf = Vec::with_capacity(4 + len);
     buf.append(&mut vec![0, 0, 0, 0]);
 
-    BigEndian::write_u32(&mut buf[0..4], idx as u32);
+    for i in 0..len {
+        let suffix = suffixes[i];
 
-    for perm in &perms {
-        buf.push(looped[perm + len - 1]);
+        buf.push(suffix.1[len - 1]);
+
+        if suffix.0 == 0 {
+            // Write output index.
+            BigEndian::write_u32(&mut buf[0..4], i as u32);
+        };
     };
 
     buf
@@ -73,7 +82,7 @@ mod test {
     use bwt;
 
     #[test]
-    fn encode_test() {
+    fn encode() {
         let input = "this is a test.".as_bytes();
         let expected_output = "ssat tt hiies .".as_bytes();
         let expected_idx = 14;
@@ -90,7 +99,22 @@ mod test {
     }
 
     #[test]
-    fn decode_test() {
+    fn encode_2() {
+        let expected_output = "BNN^AA|A".as_bytes();
+        let expected_idx = 6;
+        let input = "^BANANA|".as_bytes();
+
+        let encoded = bwt::encode(&input);
+
+        let idx = BigEndian::read_u32(&encoded[0..4]);
+        let output = &encoded[4..] as &[u8];
+
+        assert_eq!(expected_output, output);
+        assert_eq!(expected_idx, idx);
+    }
+
+    #[test]
+    fn decode() {
         let input = [0, 0, 0, 14].iter().chain("ssat tt hiies .".as_bytes().iter()).cloned().collect::<Vec<_>>();
         let expected_string = "this is a test.".as_bytes();
 
@@ -99,95 +123,5 @@ mod test {
         println!("returned str: {}", str::from_utf8(&output as &[u8]).unwrap());
 
         assert_eq!(expected_string, &output as &[u8]);
-    }
-
-    #[test]
-    fn encode_decode_test() {
-        let input = "^BANANA|".as_bytes();
-
-        let encoded = bwt::encode(&input);
-        println!("i = {:?}", BigEndian::read_u32(&encoded[0..4]));
-        let output = bwt::decode(&encoded);
-
-        assert_eq!(input, &output as &[u8]);
-    }
-
-    #[test]
-    fn sort_test() {
-        let mut base_data = [
-            [1, 2, 3],
-            [1, 1, 1],
-            [2, 1, 2],
-            [2, 3, 1],
-        ];
-
-        let mut data = [
-            &base_data[2][..],
-            &base_data[0][..],
-            &base_data[2][..],
-            &base_data[1][..],
-            &base_data[3][..],
-            &base_data[2][..],
-            &base_data[2][..],
-            &base_data[3][..],
-            &base_data[3][..],
-            &base_data[2][..],
-            &base_data[3][..],
-        ];
-
-        let mut sorted = data.clone();
-        bwt::quicksort(&mut sorted[..]);
-
-        let mut refsorted = data.clone();
-        refsorted.sort();
-
-        assert_eq!(refsorted, sorted);
-    }
-
-    #[test]
-    fn sort2_test() {
-        let mut base_data = [
-            [1],
-            [2],
-            [3],
-            [4],
-            [5],
-            [6],
-            [7],
-            [8],
-            [9],
-            [10],
-            [11],
-            [12],
-            [13],
-            [14],
-            [15],
-        ];
-
-        let data = [
-            &base_data[14][..],
-            &base_data[13][..],
-            &base_data[12][..],
-            &base_data[11][..],
-            &base_data[10][..],
-            &base_data[9][..],
-            &base_data[8][..],
-            &base_data[7][..],
-            &base_data[6][..],
-            &base_data[5][..],
-            &base_data[4][..],
-            &base_data[3][..],
-            &base_data[2][..],
-            &base_data[1][..],
-            &base_data[0][..],
-        ];
-
-        let mut sorted = data.clone();
-        bwt::quicksort(&mut sorted[..]);
-
-        let mut refsorted = data.clone();
-        refsorted.sort();
-
-        assert_eq!(refsorted, sorted);
     }
 }

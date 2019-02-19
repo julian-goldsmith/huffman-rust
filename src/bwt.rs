@@ -1,14 +1,5 @@
 use byteorder::{BigEndian, ByteOrder};
 
-fn build_suffix_array<'a>(len: usize, data_looped: &'a [u8]) -> Vec<(usize, &'a [u8])> {
-    let mut suffixes = (0..len).
-        map(|i| (i, &data_looped[i..(i + len)])).
-        collect::<Vec<(usize, &'a [u8])>>();
-    suffixes.sort_unstable_by_key(|s| s.1);
-
-    suffixes
-}
-
 pub fn encode(data: &[u8]) -> Vec<u8> {
     let len = data.len();
 
@@ -16,7 +7,8 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     data_looped.extend(data);
     data_looped.extend(&data[..(len-1)]);
 
-    let suffixes = build_suffix_array(len, &data_looped);
+    let mut suffixes = (0..len).map(|i| i).collect::<Vec<usize>>();
+    suffixes.sort_unstable_by_key(|&s| &data_looped[s..(s + len)]);
 
     let mut buf = Vec::with_capacity(4 + len);
     buf.append(&mut vec![0, 0, 0, 0]);
@@ -24,9 +16,9 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     for i in 0..len {
         let suffix = suffixes[i];
 
-        buf.push(suffix.1[len - 1]);
+        buf.push(data_looped[suffix + len - 1]);
 
-        if suffix.0 == 0 {
+        if suffix == 0 {
             // Write output index.
             BigEndian::write_u32(&mut buf[0..4], i as u32);
         };
@@ -35,8 +27,8 @@ pub fn encode(data: &[u8]) -> Vec<u8> {
     buf
 }
 
-pub fn decode(in_data: &[u8]) -> Vec<u8> {
-    let data = &in_data[4..];
+pub fn decode(buf: &[u8]) -> Vec<u8> {
+    let data = &buf[4..];
 
     let mut num_appearances = Vec::<(u8, usize)>::with_capacity(data.len());
     let mut num_char_appearances = vec![0; 256];
@@ -54,13 +46,9 @@ pub fn decode(in_data: &[u8]) -> Vec<u8> {
         less_than += appearances;
     };
 
-    let mut out_bytes = Vec::with_capacity(data.len());
+    let mut out_bytes = vec![0; data.len()];
 
-    unsafe {
-        out_bytes.set_len(data.len());
-    };
-
-    let mut idx = BigEndian::read_u32(&in_data[0..4]) as usize;
+    let mut idx = BigEndian::read_u32(&buf[0..4]) as usize;
     let mut ob_idx = data.len();
 
     for _ in 0..data.len() {
